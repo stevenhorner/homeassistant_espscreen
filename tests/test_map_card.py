@@ -517,6 +517,33 @@ class Render(unittest.TestCase):
         self.assertLess(best, 0.05, f'{best * 1000:.0f} ms for eight entities and twelve zones at 480x320')
 
 
+class FontDiscovery(unittest.TestCase):
+    """Where `_font_files` looks, in a checkout and in the built add-on, where the module sits right under `/`."""
+
+    def _candidates(self, module_path, bold=False):
+        original = map_card.__file__
+        map_card.__file__ = module_path
+        try:
+            return map_card._font_files(bold)
+        finally:
+            map_card.__file__ = original
+
+    def test_a_shallow_app_directory_does_not_crash_font_discovery(self):
+        # The add-on's Dockerfile copies `app` to `/app`, so `map_card.py` sits right under the filesystem root and
+        # has only one parent -- indexing a second one, as the add-on's crash traceback did, raises IndexError.
+        candidates = self._candidates('/app/map_card.py')
+        self.assertTrue(candidates)
+
+    def test_a_repository_checkout_still_finds_its_own_fonts_first(self):
+        candidates = self._candidates(str(ROOT / 'screen_manager/app/map_card.py'))
+        self.assertEqual(candidates[0], ROOT / 'fonts' / 'Roboto-400.ttf')
+
+    def test_the_last_candidate_is_always_a_system_font(self):
+        for module_path in ('/app/map_card.py', str(ROOT / 'screen_manager/app/map_card.py')):
+            candidates = self._candidates(module_path)
+            self.assertEqual(candidates[-1], Path('/usr/share/fonts/truetype/dejavu') / 'DejaVuSans.ttf')
+
+
 def _timed(work):
     start = time.perf_counter()
     work()

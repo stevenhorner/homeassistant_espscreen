@@ -90,13 +90,11 @@ const mapCard = computed(() => display.value === "map");
 const mapEntities = computed(() => (props.tile.options?.map as string[] | undefined) ?? []);
 const mapShown = computed(() => [props.tile.entity, ...mapEntities.value]);
 const mapFull = computed(() => mapShown.value.length >= rules.map.max);
-const mapPicker = ref(false);
 // The picker offers people and device trackers that are not on this map yet, and never the tile's own entity.
 const mapOffered = computed(() => (state.inventory.entities || [])
   .filter((item) => rules.map.domains.includes(item.id.split(".")[0]) && !mapShown.value.includes(item.id))
-  .map((item) => [item.id, item.name || item.id] as [string, string]));
+  .map((item) => [item.id, item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id] as [string, string]));
 function addMapEntity(id: string) {
-  mapPicker.value = false;
   setTileOption(props.tile, "map", [...mapEntities.value, id]);
 }
 function removeMapEntity(id: string) {
@@ -300,18 +298,13 @@ const backgroundName = computed(() => state.inventory.backgrounds?.[props.tile.o
         <span class="f-label">{{ t("editor.tile.map.entities") }}</span>
         <ul class="map-list">
           <li v-for="item in mapShown" :key="item" class="map-entity">
-            <span class="map-name">{{ entityName(item) }}</span>
-            <span v-if="item === tile.entity" class="map-own">{{ t("editor.tile.map.own") }}</span>
-            <button v-else type="button" class="remove" :aria-label="t('editor.tile.map.remove')" @click="removeMapEntity(item)">&times;</button>
+            <code class="map-name">{{ item }}</code>
+            <button v-if="item !== tile.entity" type="button" class="remove" :aria-label="t('editor.tile.map.remove')" @click="removeMapEntity(item)">&times;</button>
           </li>
         </ul>
-        <button v-if="!mapFull" type="button" class="map-add" @click="mapPicker = !mapPicker">{{ t("editor.tile.map.add") }}</button>
+        <UiSelect v-if="!mapFull" class="map-add-select" :model-value="''" :options="mapOffered"
+          :placeholder="t('editor.tile.map.add')" @update:model-value="addMapEntity" />
         <small v-else class="help">{{ t("editor.tile.map.full") }}</small>
-        <ul v-if="mapPicker && !mapFull" class="map-picker">
-          <li v-for="[id, label] in mapOffered" :key="id">
-            <button type="button" class="map-choice" @click="addMapEntity(id)">{{ label }}</button>
-          </li>
-        </ul>
       </div>
       <div v-if="mapCard" class="f">
         <span class="f-label">{{ t("editor.tile.map.zoom.label") }}</span>

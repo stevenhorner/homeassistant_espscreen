@@ -482,8 +482,10 @@ def _font_files(bold):
     here = Path(__file__).resolve().parent
     name = 'Roboto-500.ttf' if bold else 'Roboto-400.ttf'
     system = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
-    return [here.parents[1] / 'fonts' / name, here / 'fonts' / name,
-            Path('/usr/share/fonts/truetype/dejavu') / system]
+    # In a checkout `here` is `screen_manager/app`, two levels below the repository's `fonts`. In the built add-on
+    # `here` is `/app`, right under the filesystem root, with no such ancestor to index (issue: IndexError).
+    repo_fonts = [here.parents[1] / 'fonts' / name] if len(here.parents) > 1 else []
+    return repo_fonts + [here / 'fonts' / name, Path('/usr/share/fonts/truetype/dejavu') / system]
 
 
 def _font(size, bold=False):

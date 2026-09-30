@@ -542,6 +542,14 @@ class CameraFeed:
         screen that reloads its link after someone moved gets the card drawn again. A drawn frame is never missing.
         """
         renders = renders or {}
+        if atlas is not None and renders:
+            # Firmware/WASM built before 0.14.0 sends 170 (card darkening) for every card_art tile, maps
+            # included; current firmware sends 0 for a map. A stale build's 170 would blend the whole
+            # basemap toward black in tile_art.encode, so a render's own frame is forced back to 0 here,
+            # leaving every other frame's requested shade (a camera's 0, a cover's 170) untouched.
+            width, height, frames = atlas
+            frames = tuple(frame[:5] + (0,) if entity in renders else frame for entity, frame in zip(entities, frames))
+            atlas = (width, height, frames)
         marks = {entity: mark() if callable(mark) else mark for entity, (mark, _) in renders.items()}
         fetched = iter(await asyncio.gather(*(self.live_one(entity, pace, wait)
                                               for entity, pace in zip(entities, paces) if entity not in renders)))

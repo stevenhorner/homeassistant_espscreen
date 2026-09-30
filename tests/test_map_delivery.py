@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'screen_manager/app'))
@@ -313,6 +314,36 @@ class Composing(unittest.TestCase):
             self.assertNotEqual(moved[0], first[0], 'a changed mark is a changed strip')
         asyncio.run(run())
         self.assertEqual(drawn[0], (120, 90), 'the renderer is asked for exactly the frame')
+
+    def test_a_stale_170_is_normalized_only_on_the_maps_own_frame(self):
+        """Firmware/WASM built before 0.14.0 sends 170 (card darkening) for every card_art tile, maps included;
+        current firmware sends 0 for a map, but a screen still on the old build sends 170 regardless. Only the
+        render's own frame is the stale mistake here -- its coordinates, size, radius, the canvas, and any other
+        frame's own requested shade (a camera or a cover that really wants 170) must reach tile_art.encode as sent."""
+        from PIL import Image
+
+        async def fetch(entity):
+            raise ConnectionError('no camera in this test')
+
+        feed = camera_feed.CameraFeed(fetch)
+        atlas = camera_feed.tile_art.parse('[[0,0,120,90,16,170],[120,0,100,80,8,170]]', (220, 90), 2)
+
+        def render(width, height):
+            return Image.new('RGB', (width, height), (10, 20, 30))
+
+        captured = {}
+
+        def fake_encode(raws, grounds, atlas, modes=None, compact=False):
+            captured['atlas'] = atlas
+            return b''
+
+        with mock.patch.object(camera_feed.tile_art, 'encode', fake_encode):
+            asyncio.run(feed.live(['person.robin', 'camera.hall'], 54, [0xFFFFFF, 0xFFFFFF], [0, 15], atlas=atlas,
+                                  renders={'person.robin': ('mark-1', render)}))
+        width, height, frames = captured['atlas']
+        self.assertEqual((width, height), (220, 90), 'the canvas is untouched')
+        self.assertEqual(frames[0], (0, 0, 120, 90, 16, 0), "the map's own frame is normalized to 0")
+        self.assertEqual(frames[1], (120, 0, 100, 80, 8, 170), "another frame's requested shade is untouched")
 
 
 @unittest.skipUnless(HAS_AIOHTTP and HAS_PIL, 'needs aiohttp and Pillow')

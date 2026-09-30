@@ -14,6 +14,7 @@ import HomeView from "../src/components/HomeView.vue";
 import SettingsTab from "../src/components/SettingsTab.vue";
 import TileCard from "../src/components/TileCard.vue";
 import TileInspector from "../src/components/TileInspector.vue";
+import UiSelect from "../src/components/ui/UiSelect.vue";
 import TopbarInspector from "../src/components/TopbarInspector.vue";
 import PageInspector from "../src/components/PageInspector.vue";
 import { openBar, removePage, setTileOption, state } from "../src/store";
@@ -528,28 +529,42 @@ describe("TileInspector: a map on a person tile (app 0.4.24)", () => {
     expect(choices(inspector({ entity: "person.robin", name: "", slot: 0 }), "Display")).toEqual(["Name and status", "Large value"]);
   });
 
-  it("keeps a list of who is on the map, its own entity first and at most eight in all", async () => {
+  it("shows entity IDs in compact rows and adds a filtered companion from a dropdown", async () => {
     const tile: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map" } };
     appendTiles(tile);
     const drawer = inspector(tile);
-    const list = () => drawer.findAll(".map-entity").map((item) => item.text());
-    expect(list()[0]).toContain("Robin");
-    expect(drawer.find(".map-entity .remove").exists()).toBe(false);
-    await drawer.find("button.map-add").trigger("click");
-    await drawer.findAll(".map-choice").find((b) => b.text().includes("Phone"))!.trigger("click");
+    const rows = () => drawer.findAll(".map-entity");
+    expect(rows()[0].find("code").text()).toBe("person.robin");
+    expect(rows()[0].text()).not.toContain("This tile");
+    expect(rows()[0].find(".remove").exists()).toBe(false);
+
+    const add = drawer.findComponent(UiSelect);
+    expect(add.exists()).toBe(true);
+    expect(add.props("placeholder")).toBe("Add entity");
+    expect(drawer.find(".map-add-select").text()).toContain("Add entity");
+    expect(add.props("options")).toEqual([
+      ["person.sam", "Sam · person.sam"],
+      ["device_tracker.phone", "Phone · device_tracker.phone"],
+    ]);
+    await add.vm.$emit("update:modelValue", "device_tracker.phone");
+    await drawer.vm.$nextTick();
     expect(current(tile).options).toEqual({ display: "map", map: ["device_tracker.phone"] });
-    expect(list().length).toBe(2);
+    expect(rows().length).toBe(2);
+    expect(rows()[1].find("code").text()).toBe("device_tracker.phone");
+    expect(rows()[1].find(".remove").exists()).toBe(true);
+
     // Its own entity is never a choice, and a companion already on the map is not offered twice.
-    await drawer.find("button.map-add").trigger("click");
-    const offered = drawer.findAll(".map-choice").map((b) => b.text());
-    expect(offered.some((text) => text.includes("Robin"))).toBe(false);
-    expect(offered.some((text) => text.includes("Phone"))).toBe(false);
-    expect(offered.some((text) => text.includes("Sam"))).toBe(true);
+    expect(drawer.findComponent(UiSelect).props("options")).toEqual([
+      ["person.sam", "Sam · person.sam"],
+    ]);
+    // The old inline picker must never return: it made the inspector as tall as the entire inventory.
+    expect(drawer.find(".map-picker").exists()).toBe(false);
+
     // The eighth in all is refused: seven companions is the most that can be stored.
     const crowd: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map", map: ["person.p1", "person.p2", "person.p3", "person.p4", "person.p5", "person.p6", "person.p7"] } };
     seedTiles([crowd]);
     const full = inspector(crowd);
-    expect(full.find("button.map-add").exists()).toBe(false);
+    expect(full.findComponent(UiSelect).exists()).toBe(false);
     expect(full.text()).toContain("A map shows at most 8");
   });
 

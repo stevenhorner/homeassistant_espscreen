@@ -1095,6 +1095,17 @@ class MapPictures(unittest.TestCase):
         self.assertNotIn('render_map_card', TILES)
         self.assertIn('(t.live()||t.is_map())&&render_camera_card(', TILES)
 
+    def test_the_atlas_frame_only_shades_a_media_cover(self):
+        # The atlas frame's last number blends the picture toward black in tile_art.encode (firmware 0.14.0):
+        # a media cover wants that fade so its icon-shaped corners still read (170), a live camera is already
+        # full colour (0), and a map (app 0.4.24) must stay full colour too (0) -- its own bottom fade for the
+        # title comes separately from camera_feed.picture_modes when the overlay is on. `card_art(t)` is true
+        # for a map as well as a cover, so it must not be what picks the shade here; only `t.cover_tile()` may.
+        wanted = self.source_of('inline LiveWish live_wanted(')
+        self.assertIn('t.cover_tile()&&!t.live()?170:0', wanted)
+        line = next(l for l in wanted.splitlines() if '?170:0' in l)
+        self.assertNotIn('card_art(t)', line)
+
     def test_the_movement_mark_is_what_the_screen_wishes_for(self):
         wanted = self.source_of('inline LiveWish live_wanted(')
         self.assertIn('map_mark', wanted)

@@ -7473,7 +7473,7 @@ inline LiveWish live_wanted() {
       const int fx=picture_store::scaled(x,scale),fy=picture_store::scaled(y,scale);
       const int fw=std::max(1,picture_store::scaled(x+width,scale)-fx),fh=std::max(1,picture_store::scaled(y+height,scale)-fy);
       char frame[96];snprintf(frame,sizeof(frame),"%s[%d,%d,%d,%d,%d,%d]",want.atlas.size()>1?",":"",
-        fx,fy,fw,fh,std::min(picture_store::scaled(radius,scale),std::min(fw,fh)/2),card_art(t)&&!t.live()?170:0);
+        fx,fy,fw,fh,std::min(picture_store::scaled(radius,scale),std::min(fw,fh)/2),t.cover_tile()&&!t.live()?170:0);
       want.atlas+=frame;
       // A smaller picture sits on the dark card (live_place), so its rounded corners are rounded over that.
       if(card_art(t)&&(fw<width||fh<height))behind=theme::hex(theme::CAMERA_PAGE);
