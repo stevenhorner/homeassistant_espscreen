@@ -50,7 +50,8 @@ export function validatePageShape(layout: PageLayout) {
     for (const tile of page.tiles) {
       fields(tile, ['id', 'content', 'placement', 'appearance', 'interaction', 'children'], ['id', 'content', 'placement', 'appearance', 'interaction']);
       fields(tile.placement, ['row', 'column', 'columns', 'rows']);
-      fields(tile.appearance, ['label', 'presentation', 'display', 'icon', 'background', 'historyHours', 'refresh', 'subtitle', 'fit', 'overlay'], ['label']);
+      fields(tile.appearance, ['label', 'presentation', 'display', 'icon', 'background', 'historyHours', 'refresh', 'subtitle', 'fit', 'overlay',
+        'mapEntities', 'mapZoom', 'mapLabels', 'basemap'], ['label']);
       fields(tile.interaction, ['tap', 'inline', 'controls', 'action', 'guard'], []);
       const content = tile.content;
       fields(content, ['kind', 'entityId', 'name', 'target'], ['kind']);
@@ -102,8 +103,23 @@ export function validateCardOptions(tile: PageTile, entityId: string, size: stri
   if (i.inline === 'slider' && (!['light', 'fan', 'cover', 'number', 'input_number', 'media_player'].includes(domain) || a.display === 'watch')) fail();
   if (a.refresh !== undefined && (a.display !== 'live' || !rules.refresh.includes(a.refresh))) fail('normalization');
   // How a live picture fills a taller card (app 0.3.8): only with the live picture, and a default is never stored.
+  // A map is always drawn at its frame's own size, so `fit` stays the live picture's; `overlay` says for both
+  // whether the screen writes the tile's name on the picture (app 0.4.24).
+  const isMap = a.display === 'map';
   for (const [key, choices] of Object.entries(rules.picture) as [('fit' | 'overlay'), string[]][])
-    if (a[key] !== undefined && (a.display !== 'live' || !choices.includes(a[key]!) || a[key] === choices[0])) fail('normalization');
+    if (a[key] !== undefined && (!(a.display === 'live' || (isMap && key === 'overlay')) || !choices.includes(a[key]!) || a[key] === choices[0])) fail('normalization');
+  // A map card's own four (app 0.4.24): they belong to the map display, and the first choice of each is never stored.
+  const mapChoices = { mapZoom: rules.map.zoom, mapLabels: rules.map.labels, basemap: rules.map.basemap };
+  for (const [key, choices] of Object.entries(mapChoices) as [('mapZoom' | 'mapLabels' | 'basemap'), string[]][])
+    if (a[key] !== undefined && (!isMap || !choices.includes(a[key]!) || a[key] === choices[0])) fail('normalization');
+  if (a.mapEntities !== undefined) {
+    const shown = a.mapEntities;
+    if (!isMap || !Array.isArray(shown) || !shown.length) fail('normalization');
+    if (shown.length > rules.map.max - 1) throw new Error(t('addon.errors.layout.map_entities'));
+    for (const id of shown)
+      if (!entity(id, rules.map.domains) || id === entityId || shown.filter((other) => other === id).length > 1)
+        throw new Error(t('addon.errors.layout.map_entities'));
+  }
   if (a.subtitle !== undefined) {
     const sub = a.subtitle;
     if (typeof sub !== 'string' || bytes(sub) > 96 || sub === 'auto' ||

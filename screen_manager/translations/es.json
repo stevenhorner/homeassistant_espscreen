@@ -272,6 +272,12 @@
       "tap_to_view": "Toca para ver",
       "no_image_yet": "Sin imagen"
     },
+    "map": {
+      "no_location": "Sin ubicación",
+      "away": "1 fuera | {n} fuera",
+      "unavailable": "No disponible",
+      "more": "+{n} más"
+    },
     "calibration": {
       "title": "Sigue la calibración",
       "touch_check": "Prueba táctil GT911",
@@ -545,6 +551,8 @@
         "pages": "Una pantalla tiene 1 página. | Una pantalla tiene de 1 a {n} páginas.",
         "eight_pages": "Estos mosaicos no caben en las páginas de esta pantalla; elimina un mosaico o haz uno más pequeño.",
         "camera_unsupported": "Esta pantalla no puede mostrar imágenes de cámara.",
+        "map_unsupported": "Esta pantalla no puede mostrar un mapa.",
+        "map_entities": "Un mapa muestra como máximo 8 personas o rastreadores, cada uno una vez, y no la propia entidad dos veces.",
         "firmware_first": "Para estos mosaicos, instala antes el firmware {version} o posterior en la pantalla.",
         "entity_gone": "Una de las entidades elegidas ya no existe. Busca la entidad nueva.",
         "ids_too_long": "Juntos, los ID de entidad de estos mosaicos son demasiado largos para caber en un mensaje a la pantalla; elimina algunos mosaicos."
@@ -1483,7 +1491,8 @@
       "flip": "reloj de paletas",
       "sunpath": "recorrido del sol",
       "live": "imagen en vivo",
-      "cover": "carátula"
+      "cover": "carátula",
+      "map": "mapa"
     },
     "sizes": {
       "single": "normal",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Una imagen en vivo necesita el firmware 0.2.77 o más reciente: pulsa Actualizar en la pantalla después de guardar.",
         "live_card_hint": "La imagen llena el mosaico, actualizada al ritmo de abajo mientras la página está en pantalla. Un toque la sigue abriendo a pantalla completa.",
         "live_card_needs_firmware": "Una imagen que llena el mosaico necesita el firmware 0.3.7 o más reciente: pulsa Actualizar en la pantalla después de guardar. Hasta entonces la pantalla muestra una imagen pequeña en el lugar del icono.",
+        "map": "Mapa",
+        "map_hint": "Un mapa de dónde están estas personas. El complemento lo dibuja y envía una imagen a la pantalla, así que ninguna ubicación llega nunca a la pantalla. La entidad propia de la tarjeta es una persona; añade abajo un teléfono o un coche como acompañante.",
+        "map_needs_firmware": "Un mapa necesita el firmware 0.15.0 o posterior: pulsa Actualizar en la pantalla después de guardar.",
         "cover": "Carátula",
         "cover_hint": "La carátula de lo que suena en el lugar del icono, como en el propio mosaico de Home Assistant; un reproductor sin imagen conserva su icono. Un toque sigue abriendo la tarjeta.",
         "cover_needs_firmware": "La carátula en el mosaico necesita el firmware 0.2.78 o más reciente: pulsa Actualizar en la pantalla después de guardar.",
@@ -1542,6 +1554,35 @@
           "name": "Nombre",
           "none": "Nada"
         }
+      },
+      "map": {
+        "entities": "En el mapa",
+        "add": "Añadir entidad",
+        "own": "Esta tarjeta",
+        "remove": "Quitar",
+        "full": "Un mapa muestra como máximo 8 personas o rastreadores.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Mostrar a todos",
+          "17": "Calle",
+          "15": "Barrio",
+          "13": "Ciudad",
+          "11": "Región"
+        },
+        "labels": {
+          "label": "Etiquetas",
+          "names": "Nombres",
+          "initials": "Iniciales",
+          "nothing": "Nada"
+        },
+        "basemap": {
+          "label": "Mapa base",
+          "auto": "Mapa de Home Assistant",
+          "none": "Ninguno",
+          "hint": "Mapa de Home Assistant: el complemento pide a Home Assistant las teselas del área mostrada, y Home Assistant las obtiene de OpenStreetMap y las guarda en caché. Solo se envían un nivel de zoom y dos números, nunca un nombre ni una entidad.",
+          "none_hint": "Ninguno: nada sale de Home Assistant. La tarjeta muestra tus zonas y las personas sobre un fondo liso."
+        },
+        "privacy": "La imagen viaja sin cifrar por tu red, como cualquier otra imagen, así que una tarjeta de mapa muestra aproximadamente dónde está alguien a cualquiera en esa red. Nunca se envía a una pantalla una ubicación, un token ni una dirección de mapa."
       },
       "size": {
         "label": "Tamaño",

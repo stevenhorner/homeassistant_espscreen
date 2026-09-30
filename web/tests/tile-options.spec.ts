@@ -8,7 +8,7 @@ import { nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActionPicker from "../src/components/ActionPicker.vue";
 import TileInspector from "../src/components/TileInspector.vue";
-import { canonicalOptions, choiceOffered } from "../src/model/tile-options";
+import { canonicalOptions, choiceOffered, optionsSave } from "../src/model/tile-options";
 import { validatePages } from "../src/model/pages";
 import { state } from "../src/store";
 import type { Inventory, Tile } from "../src/types";
@@ -25,6 +25,7 @@ function inventory(): Inventory {
       { id: "climate.c", name: "Heating", state: "heat", area: "" }, { id: "scene.s", name: "Evening", state: "", area: "" },
       { id: "switch.s", name: "Fan", state: "off", area: "" }, { id: "number.n", name: "Volume", state: "3", area: "" },
       { id: "automation.a", name: "Curtains at sunset", state: "on", area: "" },
+      { id: "person.robin", name: "Robin", state: "home", area: "" }, { id: "person.sam", name: "Sam", state: "not_home", area: "" },
     ],
     builtin: [],
     icons: { groups: [], weather: { partlycloudy: "F0595", sunny: "F0599" }, sun: { below_horizon: "F0594" }, defaults: {}, fallback: "F0335", builtin: {}, controls: {} },
@@ -170,5 +171,41 @@ describe("the tile panel", () => {
         panel.unmount();
       }
     }
+  });
+});
+
+describe("a map on a person tile (app 0.4.24)", () => {
+  const person = (options?: Record<string, unknown>): Tile => ({ id: "p", entity: "person.robin", name: "Robin", slot: 0, options: options as any });
+
+  it("stores exactly what the add-on stores", () => {
+    // The first choice of each is the default and is never stored, as the add-on drops it (core.validate_layout).
+    expect(canonicalOptions("person.robin", { display: "map", zoom: "fit", labels: "names", basemap: "auto", overlay: "name" })).toEqual({ display: "map" });
+    expect(canonicalOptions("person.robin", { display: "map", map: ["device_tracker.phone"], zoom: "15", basemap: "none" }))
+      .toEqual({ display: "map", map: ["device_tracker.phone"], zoom: "15", basemap: "none" });
+    expect(canonicalOptions("person.robin", { display: "map", labels: "initials", overlay: "none" })).toEqual({ display: "map", labels: "initials", overlay: "none" });
+    // Another display leaves nothing of the map behind.
+    expect(canonicalOptions("person.robin", { display: "standard", map: ["person.sam"], zoom: "13", labels: "initials", basemap: "none" })).toEqual({ display: "standard" });
+    // A map is drawn at its frame's exact size and only when something moved, so neither fit nor a pace survives.
+    expect(canonicalOptions("person.robin", { display: "map", fit: "contain", refresh: 5 })).toEqual({ display: "map" });
+  });
+
+  it("is a choice a person has and nobody else", () => {
+    expect(choiceOffered(person(), "display", "map", false)).toBe(true);
+    expect(choiceOffered({ id: "l", entity: "light.a", name: "", slot: 0 }, "display", "map", true)).toBe(false);
+    expect(choiceOffered({ id: "c", entity: "camera.door", name: "", slot: 0 }, "display", "map", false)).toBe(false);
+  });
+
+  it("refuses a companion list the add-on would refuse", () => {
+    expect(optionsSave(person(), { display: "map", map: ["device_tracker.phone", "person.sam"] })).toBe(true);
+    expect(optionsSave(person(), { display: "map", map: ["person.p1", "person.p2", "person.p3", "person.p4", "person.p5", "person.p6", "person.p7"] })).toBe(true);
+    // Eight companions is one too many, the same entity twice is one too often, and the tile's own entity is already there.
+    expect(optionsSave(person(), { display: "map", map: ["person.p1", "person.p2", "person.p3", "person.p4", "person.p5", "person.p6", "person.p7", "person.p8"] })).toBe(false);
+    expect(optionsSave(person(), { display: "map", map: ["person.sam", "person.sam"] })).toBe(false);
+    expect(optionsSave(person(), { display: "map", map: ["person.robin"] })).toBe(false);
+    expect(optionsSave(person(), { display: "map", map: ["light.kitchen"] })).toBe(false);
+    expect(optionsSave(person(), { display: "map", map: "person.sam" as any })).toBe(false);
+    expect(optionsSave(person(), { display: "map", basemap: "satellite" })).toBe(false);
+    expect(optionsSave(person(), { display: "map", zoom: "19" })).toBe(false);
+    expect(optionsSave(person(), { display: "map", labels: "emoji" })).toBe(false);
   });
 });

@@ -74,6 +74,9 @@ const displays = computed(() => {
     if (key === "graph") return !c || c.displays.includes("graph") || display.value === "graph";
     // The album cover on a media tile (app 0.2.92), on a board that draws pictures; the tile over the whole page has the card's big cover.
     if (key === "cover") return (pictures.value || display.value === "cover") && size.value !== "full";
+    // A map on a person tile (app 0.4.24): the add-on draws it and the screen gets a picture, so it is offered
+    // only where the board draws pictures, as the album cover is.
+    if (key === "map") return pictures.value || display.value === "map";
     return true;
   });
   return offer("display", keys.map((key) => [key, t(`editor.tile.display.${key}`)] as [string, string]), display.value);
@@ -81,10 +84,32 @@ const displays = computed(() => {
 // A live camera fills its card on every size (app 0.3.13, firmware 0.3.7; 1x2 and 2x2 since app 0.3.8, firmware 0.3.3):
 // whole or cut to fill it, its name on it or nothing.
 const pictureCard = computed(() => display.value === "live");
+// A map card (app 0.4.24): who is on it, how far out it sits, how the markers are labelled and where the streets
+// come from. `overlay` is shared with a live camera; `fit` is not, because a map is drawn at its frame's own size.
+const mapCard = computed(() => display.value === "map");
+const mapEntities = computed(() => (props.tile.options?.map as string[] | undefined) ?? []);
+const mapShown = computed(() => [props.tile.entity, ...mapEntities.value]);
+const mapFull = computed(() => mapShown.value.length >= rules.map.max);
+const mapPicker = ref(false);
+// The picker offers people and device trackers that are not on this map yet, and never the tile's own entity.
+const mapOffered = computed(() => (state.inventory.entities || [])
+  .filter((item) => rules.map.domains.includes(item.id.split(".")[0]) && !mapShown.value.includes(item.id))
+  .map((item) => [item.id, item.name || item.id] as [string, string]));
+function addMapEntity(id: string) {
+  mapPicker.value = false;
+  setTileOption(props.tile, "map", [...mapEntities.value, id]);
+}
+function removeMapEntity(id: string) {
+  setTileOption(props.tile, "map", mapEntities.value.filter((item) => item !== id));
+}
+const mapChoicesOf = (key: "zoom" | "labels" | "basemap") =>
+  offer(key, (rules.map[key] as string[]).map((value) => [value, t(`editor.tile.map.${key}.${value}`)] as [string, string]),
+        current(key, rules.map[key][0]));
 const cardFilled = computed(() => supports(0, 3, 7) || (taller.value && supports(0, 3, 3)));
 // A hint is a warning unless the screen's firmware already does what it describes.
 const clockFace = computed(() => clock.value && ["dial", "flip"].includes(display.value));
-const displayWarns = computed(() => !(display.value === "live" && cardFilled.value) && !(display.value === "cover" && supports(0, 2, 78)) && !(clockFace.value && supports(0, 3, 6)));
+const displayWarns = computed(() => !(display.value === "live" && cardFilled.value) && !(display.value === "cover" && supports(0, 2, 78))
+  && !(display.value === "map" && supports(0, 15, 0)) && !(clockFace.value && supports(0, 3, 6)));
 const pictureChoices = (key: "fit" | "overlay") => offer(key, rules.picture[key].map((value) => [value, t(`editor.tile.picture.${key}.${value}`)] as [string, string]), current(key, rules.picture[key][0]));
 const refreshChoices = computed(() => offer("refresh", rules.refresh.map((seconds) => [seconds, t("editor.tile.refresh.seconds", { n: seconds })] as [number, string]), refresh.value));
 const historyChoices = computed(() => offer("history_hours", [1, 6, 24].map((hours) => [hours, t("editor.tile.history.hours", hours)] as [number, string]), history.value));
@@ -93,6 +118,7 @@ const displayHint = computed(() => {
   if (c && display.value === "graph" && !c.displays.includes("graph")) return t("editor.tile.display.no_graph");
   if (c && display.value === "forecast" && !c.displays.includes("forecast")) return t("editor.tile.display.no_forecast");
   if (display.value === "live") return t(cardFilled.value ? "editor.tile.display.live_card_hint" : supports(0, 2, 77) ? "editor.tile.display.live_card_needs_firmware" : "editor.tile.display.live_needs_firmware");
+  if (display.value === "map") return t(supports(0, 15, 0) ? "editor.tile.display.map_hint" : "editor.tile.display.map_needs_firmware");
   if (display.value === "cover" && taller.value) return t("editor.tile.display.tall_cover_hint");
   if (display.value === "cover") return t(supports(0, 2, 78) ? "editor.tile.display.cover_hint" : "editor.tile.display.cover_needs_firmware");
   // The calm dial and the flip clock (firmware 0.3.6): an older screen shows the digital clock until it is updated.
@@ -266,10 +292,41 @@ const backgroundName = computed(() => state.inventory.backgrounds?.[props.tile.o
         <span class="f-label">{{ t("editor.tile.picture.fit.label") }}</span>
         <Segmented :choices="pictureChoices('fit')" :value="current('fit', 'fill')" @pick="(v) => setTileOption(tile, 'fit', v)" />
       </div>
-      <div v-if="pictureCard" class="f">
+      <div v-if="pictureCard || mapCard" class="f">
         <span class="f-label">{{ t("editor.tile.picture.overlay.label") }}</span>
         <Segmented :choices="pictureChoices('overlay')" :value="current('overlay', 'name')" @pick="(v) => setTileOption(tile, 'overlay', v)" />
       </div>
+      <div v-if="mapCard" class="f">
+        <span class="f-label">{{ t("editor.tile.map.entities") }}</span>
+        <ul class="map-list">
+          <li v-for="item in mapShown" :key="item" class="map-entity">
+            <span class="map-name">{{ entityName(item) }}</span>
+            <span v-if="item === tile.entity" class="map-own">{{ t("editor.tile.map.own") }}</span>
+            <button v-else type="button" class="remove" :aria-label="t('editor.tile.map.remove')" @click="removeMapEntity(item)">&times;</button>
+          </li>
+        </ul>
+        <button v-if="!mapFull" type="button" class="map-add" @click="mapPicker = !mapPicker">{{ t("editor.tile.map.add") }}</button>
+        <small v-else class="help">{{ t("editor.tile.map.full") }}</small>
+        <ul v-if="mapPicker && !mapFull" class="map-picker">
+          <li v-for="[id, label] in mapOffered" :key="id">
+            <button type="button" class="map-choice" @click="addMapEntity(id)">{{ label }}</button>
+          </li>
+        </ul>
+      </div>
+      <div v-if="mapCard" class="f">
+        <span class="f-label">{{ t("editor.tile.map.zoom.label") }}</span>
+        <Segmented :choices="mapChoicesOf('zoom')" :value="current('zoom', rules.map.zoom[0])" @pick="(v) => setTileOption(tile, 'zoom', v)" />
+      </div>
+      <div v-if="mapCard" class="f">
+        <span class="f-label">{{ t("editor.tile.map.labels.label") }}</span>
+        <Segmented :choices="mapChoicesOf('labels')" :value="current('labels', rules.map.labels[0])" @pick="(v) => setTileOption(tile, 'labels', v)" />
+      </div>
+      <div v-if="mapCard" class="f">
+        <span class="f-label">{{ t("editor.tile.map.basemap.label") }}</span>
+        <Segmented :choices="mapChoicesOf('basemap')" :value="current('basemap', rules.map.basemap[0])" @pick="(v) => setTileOption(tile, 'basemap', v)" />
+        <small class="help">{{ t(current('basemap', 'auto') === 'none' ? 'editor.tile.map.basemap.none_hint' : 'editor.tile.map.basemap.hint') }}</small>
+      </div>
+      <p v-if="mapCard" class="hint">{{ t("editor.tile.map.privacy") }}</p>
       <div v-if="domain === 'sensor'" class="f">
         <span class="f-label">{{ t("editor.tile.history.label") }}</span>
         <Segmented :choices="historyChoices" :value="history" @pick="(v) => setTileOption(tile, 'history_hours', Number(v))" />

@@ -20,6 +20,8 @@ INSTANCE_ID = re.compile(r"[a-zA-Z0-9_-]{1,64}\Z")
 APPEARANCE = {
     "display": "display", "icon": "icon", "background": "background",
     "historyHours": "history_hours", "refresh": "refresh", "subtitle": "sub", "fit": "fit", "overlay": "overlay",
+    # A map card (app 0.4.24): who it shows and how it is drawn. None of these four ever reaches a screen.
+    "mapEntities": "map", "mapZoom": "zoom", "mapLabels": "labels", "basemap": "basemap",
 }
 INTERACTION = {"tap": "tap", "inline": "inline", "controls": "controls", "action": "action", "guard": "guard"}
 

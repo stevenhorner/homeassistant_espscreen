@@ -272,6 +272,12 @@
       "tap_to_view": "Megtekintés",
       "no_image_yet": "Még nincs kép"
     },
+    "map": {
+      "no_location": "Nincs helyadat",
+      "away": "1 távol | {n} távol",
+      "unavailable": "Nem elérhető",
+      "more": "+{n} további"
+    },
     "calibration": {
       "title": "Kövesd a kalibráló varázslót",
       "touch_check": "GT911 érintésteszt",
@@ -545,6 +551,8 @@
         "pages": "Egy kijelzőn 1 oldal van. | Egy kijelzőn 1-{n} oldal lehet.",
         "eight_pages": "Ezek a csempék nem férnek el a kijelző oldalain; távolíts el egy csempét, vagy tegyél egyet kisebbre.",
         "camera_unsupported": "Ez a kijelző nem tud kameraképet megjeleníteni.",
+        "map_unsupported": "Ez a kijelző nem tud térképet mutatni.",
+        "map_entities": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat, mindegyiket egyszer, és nem kétszer a saját entitását.",
         "firmware_first": "Ezekhez a csempékhez előbb telepíts {version} vagy újabb kijelző-firmware-t.",
         "entity_gone": "Egy kiválasztott entitás már nem létezik. Keresd meg az újat.",
         "ids_too_long": "Ezeknek a csempéknek az entitásazonosítói együtt túl hosszúak ahhoz, hogy egy üzenetben elférjenek; távolíts el néhány csempét."
@@ -1483,7 +1491,8 @@
       "flip": "lapozós óra",
       "sunpath": "napút",
       "live": "élő kép",
-      "cover": "albumborító"
+      "cover": "albumborító",
+      "map": "térkép"
     },
     "sizes": {
       "single": "normál",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Az élő képhez 0.2.77 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél.",
         "live_card_hint": "A kép kitölti a csempét, és amíg az oldal látszik, az alább megadott ütemben frissül. Koppintásra továbbra is teljes képernyőn nyílik meg.",
         "live_card_needs_firmware": "A csempét kitöltő képhez 0.3.7 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél. Addig a kijelző kis képet mutat az ikon helyén.",
+        "map": "Térkép",
+        "map_hint": "Térkép arról, hol vannak ezek a személyek. A bővítmény rajzolja meg, és képként küldi a kijelzőnek, így helyadat soha nem jut el magára a kijelzőre. A csempe saját entitása egy személy; telefont vagy autót alább adhatsz hozzá kísérőként.",
+        "map_needs_firmware": "A térképhez 0.15.0 vagy újabb firmware kell: mentés után nyomd meg a Frissítést a kijelzőn.",
         "cover": "Albumborító",
         "cover_hint": "Az éppen szóló zene albumborítója az ikon helyén, mint a Home Assistant saját csempéjén; kép nélküli lejátszónál az ikon marad. Koppintásra továbbra is a kártya nyílik meg.",
         "cover_needs_firmware": "A csempén lévő albumborítóhoz 0.2.78 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél.",
@@ -1542,6 +1554,35 @@
           "name": "Név",
           "none": "Semmi"
         }
+      },
+      "map": {
+        "entities": "A térképen",
+        "add": "Entitás hozzáadása",
+        "own": "Ez a csempe",
+        "remove": "Eltávolítás",
+        "full": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat.",
+        "zoom": {
+          "label": "Nagyítás",
+          "fit": "Mindenki látszódjon",
+          "17": "Utca",
+          "15": "Környék",
+          "13": "Város",
+          "11": "Régió"
+        },
+        "labels": {
+          "label": "Feliratok",
+          "names": "Nevek",
+          "initials": "Kezdőbetűk",
+          "nothing": "Semmi"
+        },
+        "basemap": {
+          "label": "Alaptérkép",
+          "auto": "Térkép a Home Assistanttól",
+          "none": "Nincs",
+          "hint": "Térkép a Home Assistanttól: a bővítmény a megjelenített terület csempéit kéri a Home Assistanttól, az pedig az OpenStreetMapről tölti le és tárolja őket. Csak egy nagyítási szint és két szám megy el, név vagy entitás soha.",
+          "none_hint": "Nincs: semmi nem hagyja el a Home Assistantot. A csempe a zónáidat és a rajtuk lévő személyeket mutatja egyszerű háttéren."
+        },
+        "privacy": "A kép titkosítatlanul utazik a hálózatodon, mint minden más kép, így egy térképcsempe nagyjából megmutatja, hol van valaki, bárkinek azon a hálózaton. Helyadat, token vagy térképcím soha nem kerül kijelzőre."
       },
       "size": {
         "label": "Méret",

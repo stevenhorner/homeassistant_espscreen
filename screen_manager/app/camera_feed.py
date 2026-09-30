@@ -13,6 +13,7 @@ in the screen's main loop, where touch and drawing wait with it), and the load s
 import asyncio
 from email.utils import formatdate
 import hashlib
+import inspect
 import io
 import logging
 import os
@@ -20,9 +21,10 @@ import re
 import secrets
 import time
 
+import map_card
 import tile_art
 import alert_layout
-from core import SHAPES, board_of, screen_firmware, shape_of
+from core import MAP_MIN_FIRMWARE, SHAPES, board_of, screen_firmware, shape_of
 
 LOG = logging.getLogger(__name__)
 
@@ -186,6 +188,14 @@ def can_show_live(screen):
     return bool(screen) and board_of(screen) in BOXES and (screen_firmware(screen) or (0, 0, 0)) >= LIVE_MIN_FIRMWARE
 
 
+def can_show_map(screen):
+    """A paired screen whose board draws pictures and whose firmware takes a map tile in the page's strip.
+
+    A map on a person tile (app 0.4.24, firmware 0.15.0): the app draws the whole frame itself (map_card.render) and
+    puts it in the same strip, so a map costs no second picture path and no coordinate leaves Home Assistant."""
+    return bool(screen) and board_of(screen) in BOXES and (screen_firmware(screen) or (0, 0, 0)) >= MAP_MIN_FIRMWARE
+
+
 def picture_modes(screen, options_of, entities):
     """(fit, fade) per tile of a live strip: how the app prepares each picture. A camera gets its own choices on every
     card the screen's firmware fills with it (1x2 and 2x2 from 0.3.3, every size from 0.3.7); everything else is
@@ -197,6 +207,10 @@ def picture_modes(screen, options_of, entities):
         options = options_of(entity) or {}
         if supported(entity) and options.get('display') == 'live' and (sizes is None or options.get('size') in sizes):
             modes.append((options.get('fit', 'fill'), options.get('overlay', 'name') != 'none'))
+        # A map always fills its frame, because the app drew it at exactly that size; `overlay` says whether the
+        # screen writes the tile's name in the band at the bottom, and the shade for it is baked in here.
+        elif map_card.supported(entity) and options.get('display') == 'map':
+            modes.append(('fill', options.get('overlay', 'name') != 'none'))
         else:
             modes.append(('fill', False))
     return modes
@@ -221,9 +235,18 @@ def live_request(request, atlas=False):
         return None
     if not 1 <= len(entities) <= (64 if atlas else LIVE_MAX_TILES) or len(colours) != len(entities) or (not atlas and len(set(entities)) != len(entities)):
         return None
-    if not LIVE_SIZES[0] <= size <= LIVE_SIZES[1] or not all(supported(e) or cover_supported(e) for e in entities) or not all(re.fullmatch(r'[0-9A-Fa-f]{6}', c) for c in colours):
+    if not LIVE_SIZES[0] <= size <= LIVE_SIZES[1] or not all(supported(e) or cover_supported(e) or map_card.supported(e) for e in entities) or not all(re.fullmatch(r'[0-9A-Fa-f]{6}', c) for c in colours):
         return None
     return entities, size, [int(c, 16) for c in colours]
+
+
+def listing(entities, raws, renders=None):
+    """The entities the strip really carries, '' where a camera had no snapshot.
+
+    An entity the app draws itself is always there: a strip that came from the cache skipped the drawing, so its
+    frame is None here even though the picture holds it (app 0.4.24)."""
+    renders = renders or {}
+    return [entity if entity in renders or raw is not None else '' for entity, raw in zip(entities, raws)]
 
 
 def cover_request(request):
@@ -502,28 +525,59 @@ class CameraFeed:
                     return None
         elif self.clock() - watch.fetched_at >= pace:
             self.refresh(entity, watch)
+            # A cached strip has no encoder work to yield through. Let the newly
+            # scheduled fetch start before that cached response returns, without
+            # waiting for the camera itself (the next load receives its result).
+            await asyncio.sleep(0)
         return watch.raw
 
-    async def live(self, entities, size, grounds, paces, wait=FIRST_FRAME_SECONDS, *, atlas=None, modes=None, compact=False):
+    async def live(self, entities, size, grounds, paces, wait=FIRST_FRAME_SECONDS, *, atlas=None, modes=None, compact=False, renders=None):
         """(etag, BMP, entities with '' where a camera has no snapshot) of the strip for a page's camera tiles at
-        `size` with `grounds` behind the corners and `paces` in seconds per tile, or None when no camera has one."""
-        raws = await asyncio.gather(*(self.live_one(entity, pace, wait) for entity, pace in zip(entities, paces)))
-        if all(raw is None for raw in raws):
+        `size` with `grounds` behind the corners and `paces` in seconds per tile, or None when no camera has one.
+
+        `renders` gives an entity the app draws itself (a map card, app 0.4.24) as (mark, draw), where `draw(width,
+        height)` gives a `PIL.Image` of exactly that frame, or an awaitable of one. Its mark stands where a camera's
+        digest stands, so the strip's cache key is unique per render input: two cards of the same person with
+        different companions never share an entry. A mark that is a callable is asked again on every load, so a
+        screen that reloads its link after someone moved gets the card drawn again. A drawn frame is never missing.
+        """
+        renders = renders or {}
+        marks = {entity: mark() if callable(mark) else mark for entity, (mark, _) in renders.items()}
+        fetched = iter(await asyncio.gather(*(self.live_one(entity, pace, wait)
+                                              for entity, pace in zip(entities, paces) if entity not in renders)))
+        raws = [None if entity in renders else next(fetched) for entity in entities]
+        if not renders and all(raw is None for raw in raws):
             return None
-        digests = [self.watches[entity].digest if raw is not None else '' for entity, raw in zip(entities, raws)]
+        digests = [marks[entity] if entity in renders else (self.watches[entity].digest if raw is not None else '')
+                   for entity, raw in zip(entities, raws)]
         key = ('live', size, tuple(grounds), tuple(digests), atlas, tuple(modes or ()), compact)
         tag = f'"{hashlib.sha1(repr(key).encode()).hexdigest()[:16]}-l{size}"'  # names the strip; not sent
         cached = self.strips.get(key)
         if cached is None:
             try:
+                for index, entity in enumerate(entities):
+                    if entity in renders:
+                        raws[index] = await self.drawn(renders[entity][1], atlas, index, size)
                 image = await asyncio.get_running_loop().run_in_executor(None, tile_art.encode, raws, grounds, atlas, modes, compact) if atlas else await asyncio.get_running_loop().run_in_executor(None, encode_live, raws, size, grounds, compact)
             except Exception as error:
                 LOG.info('The live pictures of %s cannot be read (%s)', ', '.join(entities), type(error).__name__)
                 return None
+            # A frame the app drew on half a basemap is provisional (map_card.render): its mark has not changed, so
+            # only a reload can put the streets back, and a kept strip would answer that reload with the same hole.
+            if any(getattr(raw, 'info', {}).get('map_provisional') for raw in raws if raw is not None):
+                return tag, image, listing(entities, raws, renders)
             self.strips = {key: image}  # the last strip only: the next load makes another anyway
         else:
             image = cached
-        return tag, image, [entity if raw is not None else '' for entity, raw in zip(entities, raws)]
+        return tag, image, listing(entities, raws, renders)
+
+    @staticmethod
+    async def drawn(draw, atlas, index, size):
+        """One frame the app draws itself, at exactly the pixels its place in the atlas has."""
+        frames = atlas[2] if atlas else ()
+        width, height = (frames[index][2], frames[index][3]) if index < len(frames) else (size, size)
+        made = draw(width, height)
+        return await made if inspect.isawaitable(made) else made
 
     # ----- covers -----
     # A media player's picture is fetched when a screen loads its cover link and Home Assistant's picture is another

@@ -272,6 +272,12 @@
       "tap_to_view": "Tap to view",
       "no_image_yet": "No image yet"
     },
+    "map": {
+      "no_location": "No location",
+      "away": "1 away | {n} away",
+      "unavailable": "Unavailable",
+      "more": "+{n} more"
+    },
     "calibration": {
       "title": "Follow the calibration wizard",
       "touch_check": "GT911 touch check",
@@ -545,6 +551,8 @@
         "pages": "A screen has 1 page. | A screen has 1 to {n} pages.",
         "eight_pages": "These tiles don't fit on this screen's pages; remove a tile or make one smaller.",
         "camera_unsupported": "This screen cannot show camera pictures.",
+        "map_unsupported": "This screen cannot show a map.",
+        "map_entities": "A map shows at most 8 people or device trackers, each once, and not its own entity twice.",
         "firmware_first": "Install screen firmware {version} or newer first for these tiles.",
         "entity_gone": "A chosen entity no longer exists. Look up the new entity.",
         "ids_too_long": "These tiles' entity IDs are too long together to fit in one message to the screen; remove a few tiles."
@@ -1483,7 +1491,8 @@
       "flip": "flip clock",
       "sunpath": "sun path",
       "live": "live picture",
-      "cover": "album cover"
+      "cover": "album cover",
+      "map": "map"
     },
     "sizes": {
       "single": "normal",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "A live picture needs firmware 0.2.77 or newer: press Update on the screen after saving.",
         "live_card_hint": "The picture fills the tile, refreshed at the pace below while the page is on screen. A tap still opens it full screen.",
         "live_card_needs_firmware": "A picture that fills the tile needs firmware 0.3.7 or newer: press Update on the screen after saving. Until then the screen shows a small picture in the icon's place.",
+        "map": "Map",
+        "map_hint": "A map of where these people are. The add-on draws it and sends the screen a picture, so no location ever reaches the screen itself. The tile's own entity is a person; add a phone or a car below as a companion.",
+        "map_needs_firmware": "A map needs firmware 0.15.0 or newer: press Update on the screen after saving.",
         "cover": "Album cover",
         "cover_hint": "The album cover of what plays in the icon's place, like Home Assistant's own tile; a player without a picture keeps its icon. A tap still opens the card.",
         "cover_needs_firmware": "The album cover on the tile needs firmware 0.2.78 or newer: press Update on the screen after saving.",
@@ -1542,6 +1554,35 @@
           "name": "Name",
           "none": "Nothing"
         }
+      },
+      "map": {
+        "entities": "On the map",
+        "add": "Add entity",
+        "own": "This tile",
+        "remove": "Remove",
+        "full": "A map shows at most 8 people or device trackers.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Fit everyone",
+          "17": "Street",
+          "15": "Neighbourhood",
+          "13": "Town",
+          "11": "Region"
+        },
+        "labels": {
+          "label": "Labels",
+          "names": "Names",
+          "initials": "Initials",
+          "nothing": "Nothing"
+        },
+        "basemap": {
+          "label": "Base map",
+          "auto": "Map from Home Assistant",
+          "none": "None",
+          "hint": "Map from Home Assistant: the add-on asks Home Assistant for the map tiles of the shown area, and Home Assistant fetches them from OpenStreetMap and caches them. Only a zoom and two numbers are sent, never a name or an entity.",
+          "none_hint": "None: nothing leaves Home Assistant. The card shows your zones and the people on them on a plain background."
+        },
+        "privacy": "The picture travels over your network unencrypted, like every other picture, so a map tile shows roughly where someone is to anyone on that network. No location, token or map address is ever sent to a screen."
       },
       "size": {
         "label": "Size",

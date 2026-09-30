@@ -33,6 +33,34 @@ def demo_layout():
         {'entity': 'weather.demo_default', 'name': 'Weather now', 'options': {}},
     ]})
 
+# A map card on a person tile (app 0.4.24, firmware 0.15.0): every size on one page, so the fit, the legend and the
+# attribution can be judged side by side. The app draws these cards, so the screen only places the pictures; a board
+# without memory for pictures shows the ordinary person cards instead.
+def map_layout():
+    return validate_layout({'title': 'Map card', 'tiles': [
+        {'entity': 'person.demo', 'name': 'Max', 'options': {'display': 'map', 'map': ['device_tracker.demo_phone']}},
+        {'entity': 'person.demo_partner', 'name': 'Robin', 'options': {'display': 'map', 'size': 'wide', 'zoom': '13'}},
+        {'entity': 'person.demo_child', 'name': 'Sam', 'options': {'display': 'map', 'size': 'square',
+                                                                   'map': ['device_tracker.demo_phone', 'device_tracker.demo_car'],
+                                                                   'labels': 'initials'}},
+        {'entity': 'person.demo_guest', 'name': 'Guest', 'options': {'display': 'map', 'size': 'tall', 'basemap': 'none'}},
+    ]})
+
+def map_states():
+    """A demo household: a home zone, a work zone, and four people in and around them.
+
+    Made-up coordinates in the middle of the North Sea, so nothing here is anybody's address."""
+    return {
+        'zone.home': {'state': 'zoning', 'attributes': {'friendly_name': 'Home', 'latitude': 54.0, 'longitude': 3.0, 'radius': 120}},
+        'zone.work': {'state': 'zoning', 'attributes': {'friendly_name': 'Work', 'latitude': 54.012, 'longitude': 3.021, 'radius': 200}},
+        'person.demo': {'state': 'home', 'attributes': {'friendly_name': 'Max', 'latitude': 54.0008, 'longitude': 3.0011}},
+        'person.demo_partner': {'state': 'Work', 'attributes': {'friendly_name': 'Robin', 'latitude': 54.0122, 'longitude': 3.0205}},
+        'person.demo_child': {'state': 'not_home', 'attributes': {'friendly_name': 'Sam', 'latitude': 54.0061, 'longitude': 3.0118}},
+        'person.demo_guest': {'state': 'unavailable', 'attributes': {'friendly_name': 'Guest'}},
+        'device_tracker.demo_phone': {'state': 'home', 'attributes': {'friendly_name': 'Phone', 'latitude': 54.0003, 'longitude': 3.0019}},
+        'device_tracker.demo_car': {'state': 'not_home', 'attributes': {'friendly_name': 'Car', 'latitude': 54.0089, 'longitude': 3.0152}},
+    }
+
 # Direct controls on wide cards (firmware 0.2.19+): one card per control set.
 def controls_layout():
     return validate_layout({'title': 'Direct control', 'tiles': [
@@ -105,17 +133,20 @@ def demo_hourly(now):
              'precipitation': [0.4, 0.2, 0, 0, 0, 0, 0, 2.1, 1.0, 0][i], 'precipitation_probability': [70, 55, 10, 5, 0, 0, 15, 85, 60, 20][i]}
             for i in range(10)]
 
-def configuration(grid, rotate=0, digital=False, wide=False, controls=False, now=None, titles=None):
+def configuration(grid, rotate=0, digital=False, wide=False, controls=False, now=None, titles=None, maps=False):
     """A canonical synthetic fixture, using the real board grid and formatter.
 
     The explicit fixture import is the only legacy-format boundary here. The
     screen receives protocol 2 through the same acknowledged sender as the app.
     """
     now = now or datetime.now(timezone.utc)
-    layout, states = (controls_layout(), controls_states(now)) if controls else (demo_layout(), demo_states(now))
-    if digital:
+    if maps:
+        layout, states = map_layout(), map_states()
+    else:
+        layout, states = (controls_layout(), controls_states(now)) if controls else (demo_layout(), demo_states(now))
+    if digital and not maps:
         layout['tiles'][0]['options'] = {'display': 'digital'}
-    elif wide:
+    elif wide and not maps:
         layout['tiles'][0]['options'] = {'display': 'analog', 'size': 'wide'}
     layout['tiles'] = layout['tiles'][rotate:] + layout['tiles'][:rotate]
     for tile, slot in zip(layout['tiles'], grid.pack(layout['tiles'])):
@@ -167,6 +198,7 @@ async def main():
     p.add_argument('--digital', action='store_true', help='Digital clock on a single tile instead of the analog calendar card without a background')
     p.add_argument('--wide', action='store_true', help='Analog clock double-width (dial with digital time and date)')
     p.add_argument('--controls', action='store_true', help='Double-width cards with direct control (firmware 0.2.19+), three per page')
+    p.add_argument('--maps', action='store_true', help='Map cards on person tiles at every size (app 0.4.24, firmware 0.15.0); the app draws them, so the screen needs ESP Screens running')
     args = p.parse_args()
     client = APIClient(args.host, 6053, noise_psk=yaml.safe_load(args.secrets.read_text())['api_encryption_key'],
                        client_info='Demo layout', expected_name=args.name)
@@ -177,8 +209,9 @@ async def main():
         inbox = next(e for e in entities if type(e).__name__ == 'TextInfo' and e.name in ('Tile settings', 'Tegelinstellingen'))
         grid = await screen_grid(client, entities)
         started = time.monotonic()
-        count = len(controls_layout()['tiles']) if args.controls else 9
-        record, values, bars, region = configuration(grid, args.rotate % count, args.digital, args.wide, args.controls)
+        count = len(map_layout()['tiles']) if args.maps else len(controls_layout()['tiles']) if args.controls else 9
+        record, values, bars, region = configuration(grid, args.rotate % count, args.digital, args.wide, args.controls,
+                                                     maps=args.maps)
         sender = api_sender(client, services)
         await sender.synchronize(inbox.object_id, record, region, values, bars)
         print(f'Demo layout applied in {time.monotonic() - started:.1f}s; {len(record["layout"]["pages"])} pages, {len(values)} tiles')

@@ -164,6 +164,48 @@ class Endpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/api/camera-preview?entity=media_player.test')).status, 404)
         self.assertEqual((await self.client.get('/api/camera-preview?entity=camera.unknown')).status, 404)
 
+    async def test_the_map_mockup_is_drawn_here_and_carries_no_location(self):
+        """A map card on the mockup (app 0.4.24): the add-on draws it, as the screen gets it, and answers pixels.
+
+        The basemap source is replaced here, so this test reaches no network; and what comes back is a BMP, so a
+        coordinate never travels to the browser either."""
+        import io
+        from PIL import Image
+        self.ha.states.update({
+            'zone.home': {'state': 'zoning', 'attributes': {'friendly_name': 'Home', 'latitude': 52.0, 'longitude': 5.0, 'radius': 100}},
+            'person.robin': {'state': 'home', 'attributes': {'friendly_name': 'Robin', 'latitude': 52.001, 'longitude': 5.002}},
+            'device_tracker.phone': {'state': 'home', 'attributes': {'friendly_name': 'Phone', 'latitude': 52.002, 'longitude': 5.001}},
+        })
+        asked = []
+
+        class Source:
+            def available(self):
+                return True
+
+            async def image(self, view, size):
+                asked.append(tuple(size))
+                return Image.new('RGBA', (int(size[0]), int(size[1])), (210, 220, 200, 255))
+        self.manager.basemap = Source()
+        response = await self.client.get('/api/map-preview?entity=person.robin')
+        self.assertEqual(response.status, 200)
+        # An ETag, so the mockup redraws only when the card really changed; the guard middleware owns Cache-Control.
+        tag, body = response.headers['ETag'], await response.read()
+        with Image.open(io.BytesIO(body)) as image:
+            self.assertEqual(max(image.size), 512)
+        self.assertNotIn(b'52.0', body[:2048], 'a picture, never a coordinate')
+        self.assertEqual((await self.client.get('/api/map-preview?entity=person.robin', headers={'If-None-Match': tag})).status, 304)
+        # The companions and the look come from the query, because the mockup has no saved tile yet; they are
+        # checked the way a saved tile is, so nothing the browser sends can widen what is drawn.
+        with_phone = await self.client.get('/api/map-preview?entity=person.robin&map=device_tracker.phone&dark=1')
+        self.assertEqual(with_phone.status, 200)
+        self.assertNotEqual(with_phone.headers['ETag'], tag)
+        self.assertTrue(asked)
+        # Not a person, an entity Home Assistant does not have, a companion that is no tracker, an unknown zoom.
+        for query in ('entity=light.a', 'entity=person.nobody', 'entity=person.robin&map=light.a',
+                      'entity=person.robin&zoom=19', 'entity=person.robin&basemap=satellite',
+                      'entity=person.robin&labels=emoji', 'entity=device_tracker.phone'):
+            self.assertEqual((await self.client.get('/api/map-preview?' + query)).status, 404, query)
+
     async def test_firmware_preview_stream_follows_only_its_entities_and_cleans_up(self):
         import asyncio
         from preview_events import Changes
@@ -255,6 +297,43 @@ class Endpoints(unittest.IsolatedAsyncioTestCase):
             response = await self.client.post('/api/firmware-preview/image', json=invalid, headers=self.headers)
             self.assertEqual(response.status, 400, await response.text())
         self.assertEqual((await self.client.get('/api/firmware-preview/images/abcdefghijklmnop.bmp')).status, 404)
+
+    async def test_the_firmware_preview_draws_a_real_map(self):
+        """The WebAssembly preview asks for its pictures with the same event a screen fires (app 0.4.24).
+
+        So a map tile in the preview is drawn by the same renderer, in the look the preview is in, and the `dark`
+        field the firmware added is accepted here too."""
+        import io
+        import json
+        from PIL import Image
+        self.ha.states.update({
+            'zone.home': {'state': 'zoning', 'attributes': {'friendly_name': 'Home', 'latitude': 52.0, 'longitude': 5.0, 'radius': 100}},
+            'person.robin': {'state': 'home', 'attributes': {'friendly_name': 'Robin', 'latitude': 52.001, 'longitude': 5.002}},
+        })
+
+        class Source:
+            def available(self):
+                return True
+
+            async def image(self, view, size):
+                return Image.new('RGBA', (int(size[0]), int(size[1])), (210, 220, 200, 255))
+        self.manager.basemap = Source()
+        fields = {'tiles': 'person.robin', 'size': '64', 'bg': 'FFFFFF', 'session': '1111111111111111',
+                  'rev': '2222222222222222', 'view': '5', 'dark': '1',
+                  'atlas': json.dumps([[0, 0, 180, 140, 8, 0]])}
+        body = {'request': {'service': 'esphome.screen_camera', 'event': True, 'data': fields},
+                'shape': {'width': 720, 'height': 720}}
+        response = await self.client.post('/api/firmware-preview/image', json=body, headers=self.headers)
+        self.assertEqual(response.status, 200, await response.text())
+        packet = await response.json()
+        self.assertEqual((packet['t'], packet['e']), ('live', 'person.robin'))
+        pixels = await self.client.get('/api/firmware-preview/images/' + packet['u'].rsplit('/', 1)[1])
+        self.assertEqual(pixels.status, 200)
+        with Image.open(io.BytesIO(await pixels.read())) as image:
+            self.assertEqual(image.size, (180, 140))
+        # A field the preview may not send is still refused, so `dark` widened nothing else.
+        invalid = {**body, 'request': {**body['request'], 'data': {**fields, 'zoom': '11'}}}
+        self.assertEqual((await self.client.post('/api/firmware-preview/image', json=invalid, headers=self.headers)).status, 400)
 
     async def test_firmware_cover_strip_uses_the_shared_atlas_and_missing_art_placeholder(self):
         import io

@@ -1,3 +1,32 @@
+## 0.4.24 (firmware 0.15.0)
+
+A map card: where the people you follow are, on the base map Home Assistant itself serves.
+
+- **A map on a person tile.** Set **Display** to **Map** on a `person.*` tile and the card shows the streets around
+  that person, their marker, the zones nearby and the tile's name. **On the map** adds up to seven companions,
+  people or device trackers, so a phone or a car joins the card without needing a person entity. Choose how far out
+  the map sits, whether the markers carry names, initials or nothing, and whether the streets come from Home
+  Assistant at all. Every board that draws camera pictures draws a map; the CYD, the Waveshare 3.5-inch and the
+  Hosyond 4-inch are told they cannot, in their own words.
+- **The add-on draws the whole card.** The screen gets a picture, exactly as it gets a camera picture, so no
+  location, no token and no map address ever reaches a screen. The base map comes through Home Assistant's own
+  `/api/map_tiles/raster` proxy, which fetches the tiles from OpenStreetMap with Home Assistant's identification and
+  keeps them for seven days; the add-on never contacts a tile server itself, and a tile request is a zoom and two
+  whole numbers, never a name or an entity. Set the base map to **None** and nothing leaves Home Assistant at all.
+- **It is drawn again only when somebody moved.** The tile's state carries a short mark of where the people on the
+  card are, rounded to about 25 metres, and the screen asks for a new picture when that mark changes. A page left up
+  for an hour with nobody moving costs no download, no render and no tile request. Turning to another page and back
+  shows the last map at once.
+- **The look is part of what the screen asks for**, so switching to dark mode redraws the map for it: the base map is
+  desaturated and darkened rather than inverted, so streets read as texture and the labels stay legible.
+- Tested: `tools/check.sh` (the Python tests, every `tests/*.cpp` under g++, the package check, the icon check, the
+  editor's tests, types and build), the i18n checks, and the add-on's own renders of the map card at six frame sizes
+  in both looks with a stubbed base map (`tools/render/map_tiles.py --cards`). Every one of the fourteen boards
+  builds on ESPHome 2026.9.0. The CYD image is 1,674,416 B, 91.2 % of its slot, 624 B more than 0.4.23; the Hosyond
+  4-inch, the tightest board, is 1,711,808 B, 93.3 %, 560 B more, the same share of its slot it already had. Not run
+  here: the build on the oldest ESPHome the packages promise, the host renders and the WebAssembly preview, for want
+  of SDL2 and Emscripten on this machine. No screen has shown this card yet.
+
 ## 0.4.23 (firmware 0.14.0)
 
 - **Taller tiles on every screen.** Less of the glass goes to space around the tiles, and more to the tiles

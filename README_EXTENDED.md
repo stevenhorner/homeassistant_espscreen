@@ -208,6 +208,13 @@ on the screen itself, and how updates work.
   four seconds, with the round back key; standby and **Back to page 1** close it. The same camera can bring its
   picture to an alert ([With a camera picture](#with-a-camera-picture)). The CYD has no memory for pictures and
   the editor doesn't offer it camera tiles. How the picture travels: [docs/CAMERA.md](docs/CAMERA.md).
+- **Map** on a person tile (app 0.4.24 / firmware 0.15.0): where the people you follow are, on the
+  base map Home Assistant serves, with your zones and a marker each. Set **Display** to **Map** and
+  add up to seven companions, people or device trackers, in **On the map**. The add-on draws the
+  whole card and sends the screen a picture, so no location, token or map address ever reaches a
+  screen; it is drawn again only when somebody moved, never on a clock. Set the base map to **None**
+  and nothing leaves Home Assistant at all. Screens without memory for pictures do not offer it.
+  What it shows, what travels where and why: [docs/MAP.md](docs/MAP.md).
 - **History card** for sensors, numbers, binary sensors, people, and switches, the way Home
   Assistant shows history: a line with an axis in round steps and clock times for numbers,
   with the highest and lowest moment, and a timeline with the time in each state for on/off,
@@ -735,6 +742,7 @@ board, so the other screens are not asked to update. `tools/affected_boards.py` 
 - [Guition hardware, mounting, and rotation](docs/GUITION.md)
 - [CYD calibration and USB diagnostics](docs/CALIBRATING.md)
 - [Camera images and album covers](docs/CAMERA.md)
+- [A map card](docs/MAP.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Instructions for developers and LLMs](AGENTS.md), with [how a screen's YAML is put together](docs/PROFILES.md),
   [settings](docs/SETTINGS.md), [colours and Dark mode](docs/THEME.md) and [releases](docs/RELEASING.md)

@@ -4,6 +4,7 @@ An atlas reuses the screen's existing live-image buffer. Frames use canvas
 coordinates, so mixed tile footprints and repeated entities need no extra bitmap
 per tile. The allocation is bounded by the paired screen's reported canvas.
 """
+import contextlib
 import io
 import json
 
@@ -75,8 +76,11 @@ def encode(raws, grounds, atlas, modes=None, compact=False):
         colour = tuple((background >> shift) & 255 for shift in (16, 8, 0))
         tile = Image.new('RGB', (w, h), colour)
         if raw is not None:
-            with Image.open(io.BytesIO(raw)) as source:
-                source.draft('RGB', (w*2, h*2))
+            # A frame the app drew itself arrives as a picture, not as bytes (map_card.render, app 0.4.24): one
+            # composer for cameras, covers and maps, without encoding a map only to decode it again here.
+            with (contextlib.nullcontext(raw) if isinstance(raw, Image.Image) else Image.open(io.BytesIO(raw))) as source:
+                if not isinstance(raw, Image.Image):
+                    source.draft('RGB', (w*2, h*2))
                 source = ImageOps.exif_transpose(source)
                 # Transparent source pixels use the tile's ground, not black.
                 rgba = source.convert('RGBA')

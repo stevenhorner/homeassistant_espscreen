@@ -9,6 +9,7 @@ import re
 import secrets
 
 from i18n import english, screen_t, t
+import map_card
 import tile_icons
 
 DOMAINS = frozenset('light switch input_boolean scene script climate vacuum fan cover sensor binary_sensor input_select select number input_number weather media_player button input_button sun timer person screen camera image alarm_control_panel lock automation'.split())
@@ -45,6 +46,19 @@ LIVE_REFRESH = (5, 10, 15, 30)
 LIVE_REFRESH_DEFAULT = 15
 # A media tile's album cover in the icon's place ("display": "cover", app 0.2.92): the same strip, firmware from here.
 COVER_TILE_MIN_FIRMWARE = (0, 2, 78)
+# A map on a person tile ("display": "map", app 0.4.24): the add-on draws the whole card and it travels in the page's
+# picture strip, like a live camera (map_card.py, docs/MAP.md). The tile's own entity is a person; a person or a
+# device tracker rides along as a companion in `map`. None of this reaches a screen: `screen_options` strips it and
+# only pixels go out, so no coordinate ever leaves Home Assistant.
+MAP_MIN_FIRMWARE = (0, 15, 0)
+MAP_DOMAINS = frozenset(('person', 'device_tracker'))
+MAP_MAX_ENTITIES = 8
+MAP_ZOOMS = ('fit', '17', '15', '13', '11')
+MAP_LABELS = ('names', 'initials', 'nothing')
+MAP_BASEMAPS = ('auto', 'none')
+# The first choice of each is the default and is never stored, as PICTURE_OPTIONS does it.
+MAP_OPTIONS = {'zoom': MAP_ZOOMS, 'labels': MAP_LABELS, 'basemap': MAP_BASEMAPS}
+MAP_OWN = ('map', *MAP_OPTIONS)
 # The calm dial and the flip clock (firmware 0.3.6+). An older screen draws either as the digital clock, so a layout
 # with one is sent as it is; the editor says so.
 CLOCK_FACES_MIN_FIRMWARE = (0, 3, 6)
@@ -86,7 +100,7 @@ REF = 'main'
 # The shared firmware of this app release: packages/core.yaml's SCREEN_FIRMWARE_VERSION, what every board builds
 # unless its own board file went ahead with a fix for that board alone (firmware_target, docs/BOARD_RELEASES.md). The
 # middle number is the core: the feature gates below name a shared X.Y.0, so a feature always ships with a new core.
-FIRMWARE_VERSION = '0.14.0'
+FIRMWARE_VERSION = '0.15.0'
 # The Auto standby switch a screen offers Home Assistant automations.
 AUTO_STANDBY_MIN_FIRMWARE = '0.2.41'
 # The settings page the screen opens itself, and the screen.settings tile that opens it.
@@ -141,7 +155,8 @@ def backgrounds():
 
 # Display modes per domain; everything else offers standard and watch (large value).
 DISPLAYS = {'weather': ('standard', 'watch', 'forecast'), 'sensor': ('standard', 'watch', 'graph'), 'screen': ('digital', 'analog', 'dial', 'flip'), 'sun': ('standard', 'watch', 'sunpath'),
-            'camera': ('standard', 'live'), 'image': ('standard', 'live'), 'media_player': ('standard', 'watch', 'cover')}
+            'camera': ('standard', 'live'), 'image': ('standard', 'live'), 'media_player': ('standard', 'watch', 'cover'),
+            'person': ('standard', 'watch', 'map')}
 # A live picture on a 1x2 or 2x2 tile fills the card (app 0.3.8, firmware 0.3.3): cut to fill it or whole on black, with
 # its name on it or nothing. The first choice of each is the default and is never stored.
 PICTURE_OPTIONS = {'fit': ('fill', 'contain'), 'overlay': ('name', 'none')}
@@ -906,6 +921,19 @@ def validate_header(data):
         items.append(clean)
     return {'items': items}
 
+def map_entities(value, own):
+    """The companions of a map tile, checked: a list of people and device trackers, each once, never the tile's own.
+
+    At most MAP_MAX_ENTITIES - 1 of them, so the card never draws more than eight. The list is never on the wire; it
+    is what the app renders from, and only from the saved layout (server.answer_live)."""
+    if not isinstance(value, list) or len(value) > MAP_MAX_ENTITIES - 1:
+        raise ValueError(t('addon.errors.layout.map_entities'))
+    for entity in value:
+        # map_card.supported, not entity_id: a device tracker is no tile domain of its own (DOMAINS is untouched).
+        if not map_card.supported(entity) or entity == own or value.count(entity) > 1:
+            raise ValueError(t('addon.errors.layout.map_entities'))
+    return list(value)
+
 def repeated_page_tiles(tiles):
     """True when a navigation tile to the same page is on the screen more than once (firmware 0.2.65+)."""
     pages = [tile['entity'] for tile in tiles if page_target(tile['entity'])]
@@ -926,6 +954,7 @@ def min_firmware(layout):
         (any(t['entity'] == NIGHTSTAND or is_key(t) for t in tiles), NIGHTSTAND_MIN_FIRMWARE),
         (repeated_page_tiles(tiles), PAGE_TILE_REPEAT_MIN_FIRMWARE),
         (len(tiles) > LEGACY_MAX_TILES or any(is_full(t) or page_target(t['entity']) for t in tiles), FULL_PAGE_MIN_FIRMWARE),
+        (any(o.get('display') == 'map' for o in options), MAP_MIN_FIRMWARE),
         (any(o.get('display') == 'cover' for o in options), COVER_TILE_MIN_FIRMWARE),
         (any(o.get('display') == 'live' for o in options), LIVE_MIN_FIRMWARE),
         (bool(domains & set(CAMERA_DOMAINS)), CAMERA_MIN_FIRMWARE),
@@ -957,7 +986,9 @@ TILE_RESULT_EVENT = 'esp_screens_tile_result'
 # pastel background.
 TILE_EVENT_OPTIONS = {'size': 'size', 'controls': 'controls', 'display': 'display', 'icon': 'icon',
                       'color': 'background', 'background': 'background', 'tap': 'tap', 'inline': 'inline',
-                      'history_hours': 'history_hours', 'refresh': 'refresh', 'fit': 'fit', 'overlay': 'overlay'}
+                      'history_hours': 'history_hours', 'refresh': 'refresh', 'fit': 'fit', 'overlay': 'overlay',
+                      # A map's look from an event (app 0.4.24); who it shows is not settable from one in version 1.
+                      'zoom': 'zoom', 'labels': 'labels', 'basemap': 'basemap'}
 TILE_SIZES = {'full': 'full', 'fullscreen': 'full', 'full screen': 'full', 'full-screen': 'full', 'page': 'full', 'whole page': 'full',
               'wide': 'wide', 'double': 'wide', 'large': 'wide', 'big': 'wide',
               'single': 'single', 'small': 'single', 'normal': 'single'}
@@ -1392,7 +1423,7 @@ def validate_layout(data, stored=False, grid=DEFAULT_GRID):
                 continue
         if 'options' in tile:
             options = tile['options']
-            if not isinstance(options, dict) or set(options) - {'tap', 'display', 'inline', 'history_hours', 'background', 'size', 'icon', 'controls', 'action', 'refresh', 'sub', 'fit', 'overlay', 'guard'}:
+            if not isinstance(options, dict) or set(options) - {'tap', 'display', 'inline', 'history_hours', 'background', 'size', 'icon', 'controls', 'action', 'refresh', 'sub', 'fit', 'overlay', 'guard', *MAP_OWN}:
                 raise ValueError(t('addon.errors.layout.unknown_settings'))
             # A navigation tile (screen.page_<n>, firmware 0.2.62+) has a name, an icon, a colour and a width; never the page.
             if page_target(tile['entity']):
@@ -1470,8 +1501,24 @@ def validate_layout(data, stored=False, grid=DEFAULT_GRID):
                     if key in options and options[key] not in allowed:
                         raise ValueError(t('addon.errors.layout.invalid_setting', setting=key))
                 options = {key: value for key, value in options.items() if key not in PICTURE_OPTIONS or value != PICTURE_OPTIONS[key][0]}
-            elif set(options) & {'refresh', *PICTURE_OPTIONS}:
-                options = {key: value for key, value in options.items() if key not in ('refresh', *PICTURE_OPTIONS)}
+            # A map card (app 0.4.24) keeps the companions it shows and how it is drawn. It is always rendered at its
+            # frame's exact size, so `fit` means nothing, and it is redrawn only when something moved, so neither does
+            # `refresh`; `overlay` stays, because the screen writes the tile's name on the picture as for a camera.
+            elif options.get('display') == 'map':
+                for refused in ('fit', 'refresh'):
+                    if refused in options:
+                        raise ValueError(t('addon.errors.layout.invalid_setting', setting=refused))
+                if 'map' in options:
+                    options = {**options, 'map': map_entities(options['map'], tile['entity'])}
+                    if not options['map']:
+                        options = {key: value for key, value in options.items() if key != 'map'}
+                allowed = {**MAP_OPTIONS, 'overlay': PICTURE_OPTIONS['overlay']}
+                for key, choices in allowed.items():
+                    if key in options and options[key] not in choices:
+                        raise ValueError(t('addon.errors.layout.invalid_setting', setting=key))
+                options = {key: value for key, value in options.items() if key not in allowed or value != allowed[key][0]}
+            elif set(options) & {'refresh', *PICTURE_OPTIONS, *MAP_OWN}:
+                options = {key: value for key, value in options.items() if key not in ('refresh', *PICTURE_OPTIONS, *MAP_OWN)}
             if options.get('display') == 'watch' and options.get('inline') == 'slider':
                 raise ValueError(t('addon.errors.layout.watch_or_slider'))
             if 'controls' in options:
@@ -1791,6 +1838,10 @@ def extras(tile, states, forecast=None, tz=None, hourly=None, now=None, device=N
     a light's effects page)."""
     domain = tile['entity'].split('.')[0]
     attrs = states.get(tile['entity'], {}).get('attributes', {})
+    # A map card carries only its movement mark (app 0.4.24): the picture is drawn in the app and the screen asks for
+    # a new one when the mark changes, so nothing here polls and no coordinate goes out (map_card.fingerprint).
+    if (tile.get('options') or {}).get('display') == 'map':
+        return map_card.extras(tile, states)
     if domain == 'light':
         # The effects page (app 0.2.83): the select and number entities of the light's device, named as Home Assistant
         # names them; the effect itself travels as the `effect` attribute.
@@ -1871,12 +1922,19 @@ def tile_icon(tile, attrs, state=None, entry=None):
     choice = tile.get('options', {}).get('icon', 'auto')
     if choice in tile_icons.ICONS:
         return tile_icons.ICONS[choice][0]
+    # A map card's picture fills the whole card, so its icon only shows while that picture is on its way: a marker
+    # says what is coming, where a person's head would say the card is a person card (app 0.4.24).
+    if tile.get('options', {}).get('display') == 'map':
+        return tile_icons.ha_icon(attrs) or tile_icons.ICONS['map-marker'][0]
     return tile_icons.ha_icon(attrs) or tile_icons.default_glyph(tile['entity'], state, attrs, entry)
 
 def screen_options(tile, attrs, state=None, entry=None):
     """Stored options on the wire; `icon` travels as the resolved codepoint (firmware 0.2.18+, ignored before)
     and `controls` only as the set the card really shows (firmware 0.2.19+, ignored before)."""
-    options = {k: v for k, v in tile.get('options', {}).items() if k not in ('icon', 'controls', 'action')}
+    # A map card's own settings stay in the app: the companions, the zoom, the labels and the basemap say where
+    # people are, and no coordinate belongs on a LAN. `display` and `overlay` go out, because the screen needs both
+    # to place the picture and write the name on it.
+    options = {k: v for k, v in tile.get('options', {}).items() if k not in ('icon', 'controls', 'action', *MAP_OWN)}
     icon = tile_icon(tile, attrs, state, entry)
     if icon:
         options['icon'] = icon

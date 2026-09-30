@@ -272,6 +272,12 @@
       "tap_to_view": "Tocca per vedere",
       "no_image_yet": "Niente immagine"
     },
+    "map": {
+      "no_location": "Nessuna posizione",
+      "away": "1 fuori | {n} fuori",
+      "unavailable": "Non disponibile",
+      "more": "+{n} altri"
+    },
     "calibration": {
       "title": "Segui la calibrazione",
       "touch_check": "Test touch GT911",
@@ -545,6 +551,8 @@
         "pages": "Uno schermo ha 1 pagina. | Uno schermo ha da 1 a {n} pagine.",
         "eight_pages": "Questi riquadri non stanno nelle pagine di questo schermo; rimuovi un riquadro o rimpiccioliscine uno.",
         "camera_unsupported": "Questo schermo non può mostrare le immagini della telecamera.",
+        "map_unsupported": "Questo schermo non può mostrare una mappa.",
+        "map_entities": "Una mappa mostra al massimo 8 persone o localizzatori, ciascuno una volta, e non due volte la propria entità.",
         "firmware_first": "Per questi riquadri installa prima sullo schermo il firmware {version} o più recente.",
         "entity_gone": "Un'entità scelta non esiste più. Cerca la nuova entità.",
         "ids_too_long": "Insieme, gli ID entità di questi riquadri sono troppo lunghi per stare in un solo messaggio allo schermo; rimuovi qualche riquadro."
@@ -1483,7 +1491,8 @@
       "flip": "orologio a palette",
       "sunpath": "percorso del sole",
       "live": "immagine dal vivo",
-      "cover": "copertina"
+      "cover": "copertina",
+      "map": "mappa"
     },
     "sizes": {
       "single": "normale",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Un'immagine dal vivo richiede il firmware 0.2.77 o più recente: premi Aggiorna sullo schermo dopo il salvataggio.",
         "live_card_hint": "L'immagine riempie il riquadro, aggiornata al ritmo qui sotto finché la pagina è sullo schermo. Un tocco la apre ancora a schermo intero.",
         "live_card_needs_firmware": "Un'immagine che riempie il riquadro richiede il firmware 0.3.7 o più recente: premi Aggiorna sullo schermo dopo il salvataggio. Fino ad allora lo schermo mostra una piccola immagine al posto dell'icona.",
+        "map": "Mappa",
+        "map_hint": "Una mappa di dove si trovano queste persone. Il componente aggiuntivo la disegna e invia un'immagine allo schermo, quindi nessuna posizione raggiunge mai lo schermo stesso. L'entità della tessera è una persona; aggiungi sotto un telefono o un'auto come accompagnatore.",
+        "map_needs_firmware": "Una mappa richiede il firmware 0.15.0 o più recente: premi Aggiorna sullo schermo dopo aver salvato.",
         "cover": "Copertina",
         "cover_hint": "La copertina di ciò che suona al posto dell'icona, come nel riquadro di Home Assistant; un lettore senza immagine mantiene la sua icona. Un tocco apre ancora la scheda.",
         "cover_needs_firmware": "La copertina sul riquadro richiede il firmware 0.2.78 o più recente: premi Aggiorna sullo schermo dopo il salvataggio.",
@@ -1542,6 +1554,35 @@
           "name": "Nome",
           "none": "Niente"
         }
+      },
+      "map": {
+        "entities": "Sulla mappa",
+        "add": "Aggiungi entità",
+        "own": "Questa tessera",
+        "remove": "Rimuovi",
+        "full": "Una mappa mostra al massimo 8 persone o localizzatori.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Mostra tutti",
+          "17": "Strada",
+          "15": "Quartiere",
+          "13": "Città",
+          "11": "Regione"
+        },
+        "labels": {
+          "label": "Etichette",
+          "names": "Nomi",
+          "initials": "Iniziali",
+          "nothing": "Niente"
+        },
+        "basemap": {
+          "label": "Mappa di base",
+          "auto": "Mappa da Home Assistant",
+          "none": "Nessuna",
+          "hint": "Mappa da Home Assistant: il componente aggiuntivo chiede a Home Assistant i tasselli dell'area mostrata, e Home Assistant li preleva da OpenStreetMap e li mette in cache. Vengono inviati solo un livello di zoom e due numeri, mai un nome o un'entità.",
+          "none_hint": "Nessuna: niente lascia Home Assistant. La tessera mostra le tue zone e le persone su uno sfondo semplice."
+        },
+        "privacy": "L'immagine viaggia in chiaro sulla tua rete, come ogni altra immagine, quindi una tessera mappa mostra a chiunque su quella rete più o meno dove si trova qualcuno. Nessuna posizione, nessun token e nessun indirizzo di mappa viene mai inviato a uno schermo."
       },
       "size": {
         "label": "Dimensione",

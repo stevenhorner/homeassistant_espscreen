@@ -492,6 +492,108 @@ describe("TileInspector: a live picture on a camera tile (app 0.2.91)", () => {
   });
 });
 
+describe("TileInspector: a map on a person tile (app 0.4.24)", () => {
+  const row = (wrapper: ReturnType<typeof mount>, label: string) =>
+    wrapper.findAll(".f").find((f) => f.find(".f-label").exists() && f.find(".f-label").text() === label)!;
+  const choices = (wrapper: ReturnType<typeof mount>, label: string) => row(wrapper, label).findAll(".seg button").map((b) => b.text());
+
+  beforeEach(() => {
+    Object.assign(state.inventory.screens[0], { firmware: "0.15.0", pictures: true });
+    state.inventory.entities.push(
+      { id: "person.robin", name: "Robin", state: "home", area: "" } as any,
+      { id: "person.sam", name: "Sam", state: "not_home", area: "" } as any,
+      // As core.discover sends it: a device tracker is top-bar only, so it is no tile of its own, but the map
+      // picker offers it as a companion (plan E8).
+      { id: "device_tracker.phone", name: "Phone", state: "home", area: "", tile: false } as any,
+    );
+  });
+
+  it("is offered only on a screen that draws pictures, and says which firmware it needs", async () => {
+    const tile: Tile = { entity: "person.robin", name: "", slot: 0 };
+    appendTiles(tile);
+    expect(choices(inspector(tile), "Display")).toEqual(["Name and status", "Large value", "Map"]);
+    const drawer = inspector(tile);
+    await row(drawer, "Display").findAll(".seg button")[2].trigger("click");
+    expect(current(tile).options).toEqual({ display: "map" });
+    expect(hint(row(drawer, "Display")).text).toMatch(/no location ever reaches the screen/);
+    expect(hint(row(drawer, "Display")).warn).toBe(false);
+    // A screen below the gate is told which firmware to install, as a warning that stays in sight.
+    Object.assign(state.inventory.screens[0], { firmware: "0.14.0" });
+    await drawer.vm.$nextTick();
+    expect(hint(row(drawer, "Display")).text).toMatch(/firmware 0\.15\.0/);
+    expect(hint(row(drawer, "Display")).warn).toBe(true);
+    // A board with no memory for pictures never offers it at all.
+    Object.assign(state.inventory.screens[0], { board: "cyd", pictures: false, firmware: "0.15.0" });
+    seedTiles([{ entity: "person.robin", name: "", slot: 0 }]);
+    expect(choices(inspector({ entity: "person.robin", name: "", slot: 0 }), "Display")).toEqual(["Name and status", "Large value"]);
+  });
+
+  it("keeps a list of who is on the map, its own entity first and at most eight in all", async () => {
+    const tile: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map" } };
+    appendTiles(tile);
+    const drawer = inspector(tile);
+    const list = () => drawer.findAll(".map-entity").map((item) => item.text());
+    expect(list()[0]).toContain("Robin");
+    expect(drawer.find(".map-entity .remove").exists()).toBe(false);
+    await drawer.find("button.map-add").trigger("click");
+    await drawer.findAll(".map-choice").find((b) => b.text().includes("Phone"))!.trigger("click");
+    expect(current(tile).options).toEqual({ display: "map", map: ["device_tracker.phone"] });
+    expect(list().length).toBe(2);
+    // Its own entity is never a choice, and a companion already on the map is not offered twice.
+    await drawer.find("button.map-add").trigger("click");
+    const offered = drawer.findAll(".map-choice").map((b) => b.text());
+    expect(offered.some((text) => text.includes("Robin"))).toBe(false);
+    expect(offered.some((text) => text.includes("Phone"))).toBe(false);
+    expect(offered.some((text) => text.includes("Sam"))).toBe(true);
+    // The eighth in all is refused: seven companions is the most that can be stored.
+    const crowd: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map", map: ["person.p1", "person.p2", "person.p3", "person.p4", "person.p5", "person.p6", "person.p7"] } };
+    seedTiles([crowd]);
+    const full = inspector(crowd);
+    expect(full.find("button.map-add").exists()).toBe(false);
+    expect(full.text()).toContain("A map shows at most 8");
+  });
+
+  it("stores the zoom, the labels and the base map only when they are not the default", async () => {
+    const tile: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map" } };
+    appendTiles(tile);
+    const drawer = inspector(tile);
+    expect(choices(drawer, "Zoom")).toEqual(["Fit everyone", "Street", "Neighbourhood", "Town", "Region"]);
+    expect(choices(drawer, "Labels")).toEqual(["Names", "Initials", "Nothing"]);
+    expect(choices(drawer, "Base map")).toEqual(["Map from Home Assistant", "None"]);
+    expect(choices(drawer, "On the picture")).toEqual(["Name", "Nothing"]);
+    expect(row(drawer, "Picture")).toBeUndefined();
+    expect(row(drawer, "Refresh")).toBeUndefined();
+    await row(drawer, "Zoom").findAll(".seg button")[2].trigger("click");
+    await row(drawer, "Labels").findAll(".seg button")[1].trigger("click");
+    expect(current(tile).options).toEqual({ display: "map", zoom: "15", labels: "initials" });
+    await row(drawer, "Zoom").findAll(".seg button")[0].trigger("click");
+    expect(current(tile).options).not.toHaveProperty("zoom");
+    // Picking None for the base map says what that means for the network.
+    await row(inspector(tile), "Base map").findAll(".seg button")[1].trigger("click");
+    expect(current(tile).options).toMatchObject({ basemap: "none" });
+    expect(inspector(tile).text()).toContain("nothing leaves Home Assistant");
+    // The privacy line is there whichever base map is chosen.
+    expect(inspector(tile).text()).toContain("unencrypted");
+  });
+
+  it("draws the add-on's own map on the mockup", async () => {
+    const tile: Tile = { entity: "person.robin", name: "", slot: 0, options: { display: "map", map: ["device_tracker.phone"], zoom: "13" } };
+    appendTiles(tile);
+    const card = mount(TileCard, { props: { tile: current(tile), slot: 0 } });
+    const picture = card.find("img.map-art");
+    expect(picture.attributes("src")).toBe("api/map-preview?entity=person.robin&map=device_tracker.phone&zoom=13");
+    await picture.trigger("load");
+    expect(card.find(".camera-name").text()).toBe("Robin");
+  });
+
+  it("clears a mini slider and direct controls when the map is chosen", () => {
+    const tile: Tile = { entity: "person.robin", name: "", slot: 0, options: { inline: "slider", controls: "toggle" } };
+    appendTiles(tile);
+    setTileOption(current(tile), "display", "map");
+    expect(current(tile).options).toEqual({ display: "map" });
+  });
+});
+
 describe("TileInspector: pages (app 0.2.78)", () => {
   const row = (wrapper: ReturnType<typeof mount>, label: string) =>
     wrapper.findAll(".f").find((f) => f.find(".f-label").exists() && f.find(".f-label").text() === label)!;

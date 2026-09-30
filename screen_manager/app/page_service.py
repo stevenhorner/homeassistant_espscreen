@@ -85,6 +85,9 @@ def save_pages(manager, inbox, data):
         raise LayoutError(t('addon.errors.layout.tiles_max', n=limit))
     if any(tile['entity'].split('.')[0] in CAMERA_DOMAINS for tile in flat['tiles']) and board_of(screen) not in camera_feed.BOXES:
         raise LayoutError(t('addon.errors.layout.camera_unsupported'))
+    # A map is one more picture (app 0.4.24): a board without room for pictures hears about the map, not the camera.
+    if any((tile.get('options') or {}).get('display') == 'map' for tile in flat['tiles']) and board_of(screen) not in camera_feed.BOXES:
+        raise LayoutError(t('addon.errors.layout.map_unsupported'))
     needed = manager.needs_firmware(inbox, flat, screen)
     if needed: raise LayoutError(t('addon.errors.layout.firmware_first', version=needed))
     _, entities = manager.inventory()

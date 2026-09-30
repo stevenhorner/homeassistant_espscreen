@@ -272,6 +272,12 @@
       "tap_to_view": "Touchez pour voir",
       "no_image_yet": "Pas d'image"
     },
+    "map": {
+      "no_location": "Pas de position",
+      "away": "{n} absent | {n} absents",
+      "unavailable": "Indisponible",
+      "more": "+{n} autres"
+    },
     "calibration": {
       "title": "Suivez l'étalonnage",
       "touch_check": "Test tactile GT911",
@@ -545,6 +551,8 @@
         "pages": "Un écran a {n} page. | Un écran a de 1 à {n} pages.",
         "eight_pages": "Ces tuiles ne tiennent pas sur les pages de cet écran ; retirez une tuile ou réduisez-en une.",
         "camera_unsupported": "Cet écran ne peut pas afficher d'images de caméra.",
+        "map_unsupported": "Cet écran ne peut pas afficher de carte.",
+        "map_entities": "Une carte affiche au plus 8 personnes ou traceurs, chacun une seule fois, et pas deux fois sa propre entité.",
         "firmware_first": "Pour ces tuiles, installez d'abord le firmware {version} ou plus récent sur l'écran.",
         "entity_gone": "Une entité choisie n'existe plus. Cherchez la nouvelle entité.",
         "ids_too_long": "Ensemble, les ID d'entité de ces tuiles sont trop longs pour tenir dans un seul message à l'écran ; retirez quelques tuiles."
@@ -1483,7 +1491,8 @@
       "flip": "horloge à volets",
       "sunpath": "course du soleil",
       "live": "image en direct",
-      "cover": "pochette"
+      "cover": "pochette",
+      "map": "carte"
     },
     "sizes": {
       "single": "normale",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Une image en direct demande le firmware 0.2.77 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement.",
         "live_card_hint": "L'image remplit la tuile, rafraîchie au rythme ci-dessous tant que la page est affichée. Un appui l'ouvre toujours en plein écran.",
         "live_card_needs_firmware": "Une image qui remplit la tuile demande le firmware 0.3.7 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement. D'ici là, l'écran affiche une petite image à la place de l'icône.",
+        "map": "Carte",
+        "map_hint": "Une carte de l'endroit où se trouvent ces personnes. Le module complémentaire la dessine et envoie une image à l'écran, aucune position n'atteint donc jamais l'écran lui-même. L'entité de la tuile est une personne ; ajoutez un téléphone ou une voiture ci-dessous comme compagnon.",
+        "map_needs_firmware": "Une carte nécessite le firmware 0.15.0 ou plus récent : appuyez sur Mettre à jour sur l'écran après avoir enregistré.",
         "cover": "Pochette",
         "cover_hint": "La pochette de ce qui joue à la place de l'icône, comme la tuile de Home Assistant ; un lecteur sans image garde son icône. Un appui ouvre toujours la carte.",
         "cover_needs_firmware": "La pochette sur la tuile demande le firmware 0.2.78 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement.",
@@ -1542,6 +1554,35 @@
           "name": "Nom",
           "none": "Rien"
         }
+      },
+      "map": {
+        "entities": "Sur la carte",
+        "add": "Ajouter une entité",
+        "own": "Cette tuile",
+        "remove": "Retirer",
+        "full": "Une carte affiche au plus 8 personnes ou traceurs.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Tout afficher",
+          "17": "Rue",
+          "15": "Quartier",
+          "13": "Ville",
+          "11": "Région"
+        },
+        "labels": {
+          "label": "Étiquettes",
+          "names": "Noms",
+          "initials": "Initiales",
+          "nothing": "Rien"
+        },
+        "basemap": {
+          "label": "Fond de carte",
+          "auto": "Carte de Home Assistant",
+          "none": "Aucun",
+          "hint": "Carte de Home Assistant : le module complémentaire demande à Home Assistant les tuiles de la zone affichée, et Home Assistant les récupère d'OpenStreetMap et les met en cache. Seuls un niveau de zoom et deux nombres sont envoyés, jamais un nom ni une entité.",
+          "none_hint": "Aucun : rien ne quitte Home Assistant. La tuile affiche vos zones et les personnes sur un fond uni."
+        },
+        "privacy": "L'image circule en clair sur votre réseau, comme toute autre image, une tuile carte montre donc à peu près où se trouve quelqu'un à toute personne sur ce réseau. Aucune position, aucun jeton et aucune adresse de carte n'est jamais envoyé à un écran."
       },
       "size": {
         "label": "Taille",

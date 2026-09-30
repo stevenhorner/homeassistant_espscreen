@@ -272,6 +272,12 @@
       "tap_to_view": "Zobacz",
       "no_image_yet": "Brak obrazu"
     },
+    "map": {
+      "no_location": "Brak lokalizacji",
+      "away": "1 poza domem | {n} poza domem | {n} poza domem",
+      "unavailable": "Niedostępny",
+      "more": "+{n} więcej"
+    },
     "calibration": {
       "title": "Postępuj według kalibracji",
       "touch_check": "Test dotyku GT911",
@@ -545,6 +551,8 @@
         "pages": "Ekran ma 1 stronę. | Ekran ma od 1 do {n} stron. | Ekran ma od 1 do {n} stron.",
         "eight_pages": "Te kafelki nie mieszczą się na stronach tego ekranu; usuń kafelek albo zmniejsz któryś z nich.",
         "camera_unsupported": "Ten ekran nie może pokazywać obrazu z kamery.",
+        "map_unsupported": "Ten ekran nie może pokazać mapy.",
+        "map_entities": "Mapa pokazuje najwyżej 8 osób lub lokalizatorów, każdego raz, i nie dwa razy własnej encji.",
         "firmware_first": "Dla tych kafelków najpierw zainstaluj na ekranie firmware {version} lub nowszy.",
         "entity_gone": "Wybrana encja już nie istnieje. Wyszukaj nową encję.",
         "ids_too_long": "Identyfikatory encji tych kafelków są razem za długie, by zmieścić się w jednej wiadomości do ekranu; usuń kilka kafelków."
@@ -1483,7 +1491,8 @@
       "flip": "zegar klapkowy",
       "sunpath": "tor słońca",
       "live": "obraz na żywo",
-      "cover": "okładka albumu"
+      "cover": "okładka albumu",
+      "map": "mapa"
     },
     "sizes": {
       "single": "normalny",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Obraz na żywo wymaga firmware 0.2.77 lub nowszego: po zapisaniu naciśnij Aktualizuj przy ekranie.",
         "live_card_hint": "Obraz wypełnia kafelek i odświeża się w tempie poniżej, dopóki strona jest na ekranie. Dotknięcie nadal otwiera go na pełnym ekranie.",
         "live_card_needs_firmware": "Obraz wypełniający kafelek wymaga firmware 0.3.7 lub nowszego: po zapisaniu naciśnij Aktualizuj przy ekranie. Do tego czasu ekran pokazuje mały obraz w miejscu ikony.",
+        "map": "Mapa",
+        "map_hint": "Mapa tego, gdzie są te osoby. Dodatek rysuje ją i wysyła na ekran obraz, więc żadna lokalizacja nigdy nie trafia na sam ekran. Własna encja kafelka to osoba; telefon lub samochód dodaj poniżej jako towarzysza.",
+        "map_needs_firmware": "Mapa wymaga oprogramowania 0.15.0 lub nowszego: po zapisaniu naciśnij Aktualizuj na ekranie.",
         "cover": "Okładka albumu",
         "cover_hint": "Okładka albumu tego, co gra, w miejscu ikony, jak na kafelku Home Assistant; odtwarzacz bez obrazu zachowuje ikonę. Dotknięcie nadal otwiera kartę.",
         "cover_needs_firmware": "Okładka albumu na kafelku wymaga firmware 0.2.78 lub nowszego: po zapisaniu naciśnij Aktualizuj przy ekranie.",
@@ -1542,6 +1554,35 @@
           "name": "Nazwa",
           "none": "Nic"
         }
+      },
+      "map": {
+        "entities": "Na mapie",
+        "add": "Dodaj encję",
+        "own": "Ten kafelek",
+        "remove": "Usuń",
+        "full": "Mapa pokazuje najwyżej 8 osób lub lokalizatorów.",
+        "zoom": {
+          "label": "Powiększenie",
+          "fit": "Pokaż wszystkich",
+          "17": "Ulica",
+          "15": "Okolica",
+          "13": "Miasto",
+          "11": "Region"
+        },
+        "labels": {
+          "label": "Etykiety",
+          "names": "Imiona",
+          "initials": "Inicjały",
+          "nothing": "Nic"
+        },
+        "basemap": {
+          "label": "Mapa podkładowa",
+          "auto": "Mapa z Home Assistanta",
+          "none": "Brak",
+          "hint": "Mapa z Home Assistanta: dodatek prosi Home Assistanta o kafelki mapy pokazywanego obszaru, a Home Assistant pobiera je z OpenStreetMap i zapisuje w pamięci podręcznej. Wysyłane są tylko poziom powiększenia i dwie liczby, nigdy nazwa ani encja.",
+          "none_hint": "Brak: nic nie opuszcza Home Assistanta. Kafelek pokazuje twoje strefy i osoby na nich na gładkim tle."
+        },
+        "privacy": "Obraz idzie przez twoją sieć bez szyfrowania, jak każdy inny obraz, więc kafelek mapy pokazuje każdemu w tej sieci, mniej więcej gdzie ktoś jest. Lokalizacja, token ani adres mapy nigdy nie trafiają na ekran."
       },
       "size": {
         "label": "Rozmiar",

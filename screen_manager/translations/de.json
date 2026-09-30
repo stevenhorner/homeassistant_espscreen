@@ -272,6 +272,12 @@
       "tap_to_view": "Ansehen",
       "no_image_yet": "Noch kein Bild"
     },
+    "map": {
+      "no_location": "Kein Standort",
+      "away": "1 unterwegs | {n} unterwegs",
+      "unavailable": "Nicht verfügbar",
+      "more": "+{n} weitere"
+    },
     "calibration": {
       "title": "Folge der Kalibrierung",
       "touch_check": "GT911-Touchtest",
@@ -545,6 +551,8 @@
         "pages": "Ein Bildschirm hat 1 Seite. | Ein Bildschirm hat 1 bis {n} Seiten.",
         "eight_pages": "Diese Kacheln passen nicht auf die Seiten dieses Bildschirms; entferne eine Kachel oder mach eine kleiner.",
         "camera_unsupported": "Dieser Bildschirm kann keine Kamerabilder anzeigen.",
+        "map_unsupported": "Dieser Bildschirm kann keine Karte zeigen.",
+        "map_entities": "Eine Karte zeigt höchstens 8 Personen oder Geräte-Tracker, jeden nur einmal, und nicht die eigene Entität doppelt.",
         "firmware_first": "Installiere für diese Kacheln zuerst Bildschirm-Firmware {version} oder neuer.",
         "entity_gone": "Eine gewählte Entität gibt es nicht mehr. Such die neue Entität heraus.",
         "ids_too_long": "Die Entitäts-IDs dieser Kacheln sind zusammen zu lang für eine Nachricht an den Bildschirm; entferne ein paar Kacheln."
@@ -1483,7 +1491,8 @@
       "flip": "Klappuhr",
       "sunpath": "Sonnenbahn",
       "live": "Livebild",
-      "cover": "Albumcover"
+      "cover": "Albumcover",
+      "map": "Karte"
     },
     "sizes": {
       "single": "normal",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Ein Livebild braucht Firmware 0.2.77 oder neuer: Nach dem Speichern beim Bildschirm auf Aktualisieren drücken.",
         "live_card_hint": "Das Bild füllt die Kachel, im Takt unten aufgefrischt, solange die Seite zu sehen ist. Ein Tipp öffnet sie weiterhin bildschirmfüllend.",
         "live_card_needs_firmware": "Ein Bild, das die Kachel füllt, braucht Firmware 0.3.7 oder neuer: Nach dem Speichern beim Bildschirm auf Aktualisieren drücken. Bis dahin zeigt der Bildschirm ein kleines Bild anstelle des Symbols.",
+        "map": "Karte",
+        "map_hint": "Eine Karte, die zeigt, wo diese Personen sind. Das Add-on zeichnet sie und schickt dem Bildschirm ein Bild, es erreicht also nie ein Standort den Bildschirm selbst. Die eigene Entität der Kachel ist eine Person; ein Telefon oder ein Auto fügst du unten als Begleiter hinzu.",
+        "map_needs_firmware": "Eine Karte braucht Firmware 0.15.0 oder neuer: nach dem Speichern auf dem Bildschirm Aktualisieren drücken.",
         "cover": "Albumcover",
         "cover_hint": "Das Albumcover des laufenden Titels anstelle des Symbols, wie auf der eigenen Kachel von Home Assistant; ein Player ohne Bild behält sein Symbol. Ein Tipp öffnet weiterhin die Karte.",
         "cover_needs_firmware": "Das Albumcover auf der Kachel braucht Firmware 0.2.78 oder neuer: Nach dem Speichern beim Bildschirm auf Aktualisieren drücken.",
@@ -1542,6 +1554,35 @@
           "name": "Name",
           "none": "Nichts"
         }
+      },
+      "map": {
+        "entities": "Auf der Karte",
+        "add": "Entität hinzufügen",
+        "own": "Diese Kachel",
+        "remove": "Entfernen",
+        "full": "Eine Karte zeigt höchstens 8 Personen oder Geräte-Tracker.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Alle zeigen",
+          "17": "Straße",
+          "15": "Viertel",
+          "13": "Stadt",
+          "11": "Region"
+        },
+        "labels": {
+          "label": "Beschriftung",
+          "names": "Namen",
+          "initials": "Initialen",
+          "nothing": "Nichts"
+        },
+        "basemap": {
+          "label": "Grundkarte",
+          "auto": "Karte von Home Assistant",
+          "none": "Keine",
+          "hint": "Karte von Home Assistant: das Add-on fragt Home Assistant nach den Kartenkacheln des gezeigten Bereichs, und Home Assistant holt sie von OpenStreetMap und speichert sie zwischen. Gesendet werden nur eine Zoomstufe und zwei Zahlen, nie ein Name oder eine Entität.",
+          "none_hint": "Keine: nichts verlässt Home Assistant. Die Karte zeigt deine Zonen und die Personen darauf auf einfachem Hintergrund."
+        },
+        "privacy": "Das Bild geht unverschlüsselt über dein Netzwerk, wie jedes andere Bild, eine Kartenkachel zeigt also jedem in diesem Netzwerk ungefähr, wo jemand ist. Ein Standort, ein Token oder eine Kartenadresse wird nie an einen Bildschirm gesendet."
       },
       "size": {
         "label": "Größe",

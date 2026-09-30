@@ -209,6 +209,10 @@ struct Extra {
   // Home Assistant last said so (seconds, and that moment as an epoch), and a short mark of the cover picture, empty
   // when the player shows none. The mark changes with the picture: the card fetches a new cover when it does.
   std::string media_artist, media_album, media_picture;
+  // A map card's movement mark (firmware 0.15.0+, app 0.4.24): a short hash of where the people it shows are and of
+  // the card's own choices, worked out by the app (map_card.fingerprint). The screen never sees a coordinate; it only
+  // folds this into the picture it wishes for, so a card is drawn again when something moved and never on a clock.
+  std::string map_mark;
   uint32_t media_duration = 0, media_position = 0, media_position_at = 0;
   // Vacuum: its own speeds (at most four) and speed, the mode, water and suction rows (see Choice), and
   // from sensors of its device the room it is in and whether it charges.
@@ -247,7 +251,7 @@ struct Extra {
            hvac_action.empty() && options.empty() && forecast.empty() && hours.empty() && std::isnan(wind) &&
            std::isnan(feels) && wind_unit.empty() && sunrise.empty() && sunset.empty() && duration.empty() &&
            remaining.empty() && !timer_end && media_title.empty() && media_artist.empty() && media_album.empty() &&
-           media_picture.empty() && !media_duration && !media_position && !media_position_at && fan_speeds.empty() && fan_speed.empty() &&
+           media_picture.empty() && map_mark.empty() && !media_duration && !media_position && !media_position_at && fan_speeds.empty() && fan_speed.empty() &&
            choices.empty() && room.empty() && !charging && std::isnan(tilt) && action.empty() && action_data.empty() &&
            action_templates.empty() && state_word.empty() && subtitle.empty() && !subtitle_at && effect.empty() &&
            option_rows.empty() && number_rows.empty() && lamps.empty() && code_format.empty() && changed_by.empty() && !arm_code_free &&
@@ -325,8 +329,12 @@ struct Tile {
   // A media player's album cover in the icon's place (firmware 0.2.78+): "display": "cover" on a single or double-width
   // tile, while the player has a picture; the tile over the whole page keeps the card's big cover.
   bool cover_tile() const { return display == "cover" && domain() == "media_player" && !full && !extra().media_picture.empty(); }
+  // A map around the people this person's tile follows (firmware 0.15.0+): the app draws the whole card and sends it
+  // in the page's picture strip, so there is no map arithmetic here at all. Version 1: the tile's own entity is a
+  // person; a device tracker rides along inside the app and never becomes a tile of its own.
+  bool is_map() const { return display == "map" && domain() == "person"; }
   // A tile that draws its picture out of the page's strip (runtime_tiles.h, live_*).
-  bool pictured() const { return live() || cover_tile(); }
+  bool pictured() const { return live() || cover_tile() || is_map(); }
   // Double width takes a row; full (firmware 0.2.62+) takes the whole page, all six slots, and is also wide.
   bool wide = false, full = false;
   uint8_t height = 1;  // Row span; independent of the card design and page height.

@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'screen_manager/app'))
 from core import (DOMAINS, HEADER_ONLY_DOMAINS, CAMERA_DOMAINS, HEADER_BUILTIN,
                   HEADER_CONTENTS, HEADER_SHOWS, DISPLAYS, WIDE_ONLY, CONTROLS,
-                  TILE_BACKGROUNDS, LIVE_REFRESH, PICTURE_OPTIONS, KEY_HOLDERS, KEY_DOMAINS, BUILTIN)
+                  TILE_BACKGROUNDS, LIVE_REFRESH, PICTURE_OPTIONS, KEY_HOLDERS, KEY_DOMAINS, BUILTIN,
+                  MAP_BASEMAPS, MAP_DOMAINS, MAP_LABELS, MAP_MAX_ENTITIES, MAP_ZOOMS)
 from tile_icons import ICONS
 
 
@@ -18,7 +19,11 @@ def rules():
             'headerShows': list(HEADER_SHOWS), 'displays': DISPLAYS, 'wideOnly': list(WIDE_ONLY),
             'controls': {domain: [key for key, _ in values] for domain, values in CONTROLS.items()},
             'backgrounds': list(TILE_BACKGROUNDS), 'refresh': list(LIVE_REFRESH),
-            'picture': {key: list(values) for key, values in PICTURE_OPTIONS.items()}, 'icons': sorted(ICONS),
+            'picture': {key: list(values) for key, values in PICTURE_OPTIONS.items()},
+            # A map card (app 0.4.24): who may ride along, how many, and how it is drawn.
+            'map': {'domains': sorted(MAP_DOMAINS), 'max': MAP_MAX_ENTITIES, 'zoom': list(MAP_ZOOMS),
+                    'labels': list(MAP_LABELS), 'basemap': list(MAP_BASEMAPS)},
+            'icons': sorted(ICONS),
             # The built-in cards of a page document (content.name) and the tiles that hold keys, with how many.
             'builtins': sorted(entity[7:] for entity in BUILTIN if not entity.startswith('screen.page_')),
             'keyHolders': KEY_HOLDERS, 'keyDomains': sorted(KEY_DOMAINS)}

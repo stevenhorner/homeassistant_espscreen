@@ -272,6 +272,12 @@
       "tap_to_view": "Tik om te kijken",
       "no_image_yet": "Nog geen beeld"
     },
+    "map": {
+      "no_location": "Geen locatie",
+      "away": "1 weg | {n} weg",
+      "unavailable": "Niet beschikbaar",
+      "more": "+{n} meer"
+    },
     "calibration": {
       "title": "Volg de kalibratie",
       "touch_check": "GT911-aanraaktest",
@@ -545,6 +551,8 @@
         "pages": "Een scherm heeft 1 pagina. | Een scherm heeft 1 tot {n} pagina's.",
         "eight_pages": "Deze tegels passen niet op de pagina's van dit scherm; verwijder een tegel of maak er een kleiner.",
         "camera_unsupported": "Dit scherm kan geen camerabeelden tonen.",
+        "map_unsupported": "Dit scherm kan geen kaart tonen.",
+        "map_entities": "Een kaart toont hoogstens 8 personen of apparaattrackers, elk één keer, en niet twee keer de eigen entiteit.",
         "firmware_first": "Installeer eerst schermfirmware {version} of nieuwer voor deze tegels.",
         "entity_gone": "Een gekozen entiteit bestaat niet meer. Zoek de nieuwe entiteit op.",
         "ids_too_long": "De entiteits-ID's van deze tegels zijn samen te lang voor één bericht aan het scherm; verwijder een paar tegels."
@@ -1483,7 +1491,8 @@
       "flip": "flipklok",
       "sunpath": "zonnebaan",
       "live": "livebeeld",
-      "cover": "albumhoes"
+      "cover": "albumhoes",
+      "map": "kaart"
     },
     "sizes": {
       "single": "normaal",
@@ -1519,6 +1528,9 @@
         "live_needs_firmware": "Een livebeeld heeft firmware 0.2.77 of nieuwer nodig: druk na het opslaan op Bijwerken bij het scherm.",
         "live_card_hint": "Het beeld vult de tile en ververst in het tempo hieronder zolang de pagina in beeld is. Een tik opent hem nog steeds schermvullend.",
         "live_card_needs_firmware": "Een beeld dat de tile vult heeft firmware 0.3.7 of nieuwer nodig: druk na het opslaan op Bijwerken bij het scherm. Tot dan toont het scherm een klein beeld op de plek van het icoon.",
+        "map": "Kaart",
+        "map_hint": "Een kaart van waar deze personen zijn. De add-on tekent hem en stuurt het scherm een plaatje, dus er bereikt nooit een locatie het scherm zelf. De eigen entiteit van de tegel is een persoon; voeg een telefoon of een auto hieronder toe als metgezel.",
+        "map_needs_firmware": "Een kaart heeft firmware 0.15.0 of nieuwer nodig: druk na het opslaan op Bijwerken op het scherm.",
         "cover": "Albumhoes",
         "cover_hint": "De albumhoes van wat er speelt op de plek van het icoon, zoals de eigen tile van Home Assistant; een speler zonder afbeelding houdt zijn icoon. Een tik opent nog steeds de kaart.",
         "cover_needs_firmware": "De albumhoes op de tile heeft firmware 0.2.78 of nieuwer nodig: druk na het opslaan op Bijwerken bij het scherm.",
@@ -1542,6 +1554,35 @@
           "name": "Naam",
           "none": "Niets"
         }
+      },
+      "map": {
+        "entities": "Op de kaart",
+        "add": "Entiteit toevoegen",
+        "own": "Deze tegel",
+        "remove": "Verwijderen",
+        "full": "Een kaart toont hoogstens 8 personen of apparaattrackers.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Iedereen in beeld",
+          "17": "Straat",
+          "15": "Buurt",
+          "13": "Stad",
+          "11": "Regio"
+        },
+        "labels": {
+          "label": "Labels",
+          "names": "Namen",
+          "initials": "Initialen",
+          "nothing": "Niets"
+        },
+        "basemap": {
+          "label": "Achtergrondkaart",
+          "auto": "Kaart van Home Assistant",
+          "none": "Geen",
+          "hint": "Kaart van Home Assistant: de add-on vraagt Home Assistant om de kaarttegels van het getoonde gebied, en Home Assistant haalt ze bij OpenStreetMap op en bewaart ze. Alleen een zoomniveau en twee getallen gaan mee, nooit een naam of een entiteit.",
+          "none_hint": "Geen: er verlaat niets Home Assistant. De tegel toont je zones en de personen daarop op een effen achtergrond."
+        },
+        "privacy": "Het plaatje gaat onversleuteld over je netwerk, zoals elk ander plaatje, dus een kaarttegel laat iedereen op dat netwerk ongeveer zien waar iemand is. Een locatie, een token of een kaartadres wordt nooit naar een scherm gestuurd."
       },
       "size": {
         "label": "Grootte",

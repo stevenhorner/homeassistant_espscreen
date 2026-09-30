@@ -2,6 +2,7 @@
 import asyncio
 from collections import Counter
 import contextlib
+import functools
 import ipaddress
 import json
 import logging
@@ -22,6 +23,8 @@ from firmware import Firmware
 import ha_catalogue
 import light_effects
 import light_groups
+import map_card
+import map_tiles
 import tile_icons
 from updates import Updater
 
@@ -542,6 +545,46 @@ class HomeAssistant:
                     raise ValueError('image too large')
             return bytes(raw)
 
+    async def map_tiles_token(self):
+        """The short-lived token Home Assistant's own map_tiles integration hands its frontend (app 0.4.24).
+
+        The same websocket command the frontend uses (`src/data/map_tiles.ts`). Home Assistant returns the token
+        itself, but an object wrapping it is taken too, so a newer Core needs no change here (plan E1)."""
+        result = await self.request('map_tiles/access_token')
+        token = result.get('token') if isinstance(result, dict) else result
+        if not isinstance(token, str) or not map_tiles.TOKEN.fullmatch(token):
+            raise ValueError('Home Assistant gave no usable map token.')
+        return token
+
+    async def map_tile(self, z, x, y, token):
+        """One basemap tile through Home Assistant's own `/api/map_tiles/raster` proxy (app 0.4.24).
+
+        A request is a zoom and two whole numbers: never an entity, never a name. Every part of the address is
+        checked here, so nothing a state or a token carries can steer where this goes. We never contact a tile
+        server ourselves: Home Assistant identifies that traffic and caches it for seven days."""
+        if any(type(n) is not int for n in (z, x, y)):
+            raise ValueError('a tile is named by three whole numbers')
+        if not 0 <= z <= map_card.RASTER_MAX_ZOOM or not 0 <= x < (1 << z) or not 0 <= y < (1 << z):
+            raise ValueError('a tile outside the map')
+        if not isinstance(token, str) or not map_tiles.TOKEN.fullmatch(token):
+            raise ValueError('no usable map token')
+        url = f'{self.base}{map_tiles.PATH}/{z}/{x}/{y}.png?token={token}'
+        async with self.session.get(url, headers={'Authorization': 'Bearer ' + self.token},
+                                    timeout=ClientTimeout(total=map_tiles.FETCH_SECONDS),
+                                    allow_redirects=False) as response:
+            if response.status in (401, 403):
+                # Worth one new token and one more try, which map_tiles.TileSource does.
+                raise map_tiles.Unauthorized(f'the map tile proxy refused this token (status {response.status})')
+            response.raise_for_status()
+            if (response.content_length or 0) > map_tiles.MAX_TILE_BYTES:
+                raise ValueError('tile too large')
+            raw = bytearray()
+            async for chunk in response.content.iter_chunked(65536):
+                raw += chunk
+                if len(raw) > map_tiles.MAX_TILE_BYTES:
+                    raise ValueError('tile too large')
+            return bytes(raw)
+
     def media_picture(self, entity):
         """The address of a media player's cover as its state carries it right now (core.media_cover: Home Assistant's
         own proxy first), or '' without one."""
@@ -741,6 +784,13 @@ class Manager:
                                              fetch_cover=lambda entity: self.ha.media_image(entity),
                                              picture=lambda entity: self.ha.media_picture(entity))
         self.alert_cameras = {}
+        # The basemap of the map cards (app 0.4.24): one token, one tile cache and one cooldown for every screen,
+        # through Home Assistant's own proxy and never through a tile server. Both calls are injected, so the tests
+        # drive it without a network. `map_renders` keeps the last few drawn cards, keyed on their movement mark, the
+        # frame and the look, so a page that reloads for its camera does not draw its map again (docs/MAP.md).
+        self.basemap = map_tiles.TileSource(lambda: self.ha.map_tiles_token(),
+                                            lambda z, x, y, token: self.ha.map_tile(z, x, y, token))
+        self.map_renders = {}
         # The action behind an alert's button (app 0.2.91): node -> (key, action, data) of the alert on that screen.
         self.alert_actions = {}
         self.store = LayoutStore(self.path, self.verified_grid)
@@ -1498,6 +1548,11 @@ class Manager:
             # The selects and numbers of its device (effects page), and a group's lamps (lamp page, app 0.3.16).
             return (tuple(light_effects.related(tile['entity'], self.device_entries(tile['entity']), self.ha.states)) +
                     tuple(light_groups.lamp_ids(tile['entity'], self.ha.states)))
+        # A map card (app 0.4.24) is drawn from the people it shows and the zones around them, so a move or a zone
+        # edit has to reach its movement mark: without this the card would keep the picture it had.
+        if (tile.get('options') or {}).get('display') == 'map':
+            return (tuple(map_card.shown_entities(tile)[1:]) +
+                    tuple(entity for entity in self.ha.states if isinstance(entity, str) and entity.startswith('zone.')))
         return ()
 
     def device_name_of(self, entity):
@@ -1535,6 +1590,9 @@ class Manager:
         # A CYD has no memory for camera images, whatever its firmware; say so before asking for an update.
         if any(t['entity'].split('.')[0] in CAMERA_DOMAINS for t in layout['tiles']) and board_of(screen) not in camera_feed.BOXES:
             raise ValueError(t('addon.errors.layout.camera_unsupported'))
+        # The same for a map, which is one more picture: the message is the map's own, not the camera's (app 0.4.24).
+        if any((t.get('options') or {}).get('display') == 'map' for t in layout['tiles']) and board_of(screen) not in camera_feed.BOXES:
+            raise ValueError(t('addon.errors.layout.map_unsupported'))
         needed = self.needs_firmware(inbox, layout, screen)
         if needed:
             raise ValueError(t('addon.errors.layout.firmware_first', version=needed))
@@ -2157,8 +2215,13 @@ class Manager:
         LOG.info('%s %s on %s%s', 'Cover of' if cover else 'Camera', entity, screen['name'], '' if message['u'] else ': no image')
 
     async def answer_live(self, inbox, screen, request):
-        """The strip for a page's live camera tiles: every tile the screen names must be a camera tile of its layout
-        set to a live picture; the pace of each comes from that tile's own setting."""
+        """The strip for a page's pictured tiles: every tile the screen names must be a pictured tile of its **saved**
+        layout, and what each shows comes from that saved tile alone.
+
+        A live camera brings its own pace; an album cover and a map bring none. A map card (app 0.4.24) is drawn here,
+        from the companions the saved tile names, so a screen can neither name an entity it has no map tile for nor
+        change which people a map draws (docs/MAP.md).
+        """
         atlas = None
         if 'atlas' in request:
             shape = camera_feed.shape_of(screen) if screen else {}
@@ -2176,25 +2239,40 @@ class Manager:
         # The same entity may have a cover on one page and an ordinary tile on
         # another. Authorize against any configured pictured tile, not the last
         # occurrence of an entity in the document.
-        tiles = {}
+        tiles, names = {}, {}
         for tile in self.layouts.get(inbox, {}).get('tiles', []):
             options = tile.get('options') or {}
             display = options.get('display')
             entity = tile['entity']
             if display in ('live', 'cover') and (display == 'cover') == camera_feed.cover_supported(entity):
                 tiles.setdefault(entity, []).append(options)
+            elif display == 'map' and entity.split('.')[0] == 'person':
+                tiles.setdefault(entity, []).append(options)
+                names.setdefault(entity, tile.get('name') or '')
         if any(entity not in tiles for entity in entities):
             LOG.info('Live pictures for %s: not the pictured tiles of %s', ', '.join(entities), screen['name'])
             return
+        maps = {entity: next((o for o in tiles[entity] if o.get('display') == 'map'), None) for entity in entities}
+        maps = {entity: options for entity, options in maps.items() if options is not None}
+        if maps and not camera_feed.can_show_map(screen):
+            LOG.info('A map for %s: %s cannot draw one yet', ', '.join(maps), screen['name'])
+            return
+        # A map is redrawn only when its mark changes, so it never sets a pace: nothing here runs on a clock.
         paces = [min(option.get('refresh', camera_feed.LIVE_REFRESH_DEFAULT) if option.get('display') == 'live' else 0
                      for option in tiles[entity]) for entity in entities]
         # How each picture fills its card (app 0.3.8): one tile per entity on a screen, so its options are the tile's.
-        modes = camera_feed.picture_modes(screen, lambda entity: next((o for o in tiles[entity] if o.get('display') == 'live'), None), entities) if atlas else None
+        pictured = lambda entity: next((o for o in tiles[entity] if o.get('display') in ('live', 'map')), None)
+        modes = camera_feed.picture_modes(screen, pictured, entities) if atlas else None
+        # The look the screen is in (app 0.4.24): a map is drawn for it, so switching the look is another picture.
+        dark = str(request.get('dark') or '') == '1'
+        renders = {entity: self.map_render(entity, names.get(entity, ''), options, dark)
+                   for entity, options in maps.items()}
         url, listing = '', ','.join(entities)
         base = await camera_feed.base_url(self.ha.request)
         if base:
             # A screen whose decoder reads 8-bit colour gets a third of the bytes (app 0.3.8).
-            extra = {'compact': camera_feed.compact_pictures(screen), **({'atlas': atlas, 'modes': modes} if atlas else {})}
+            extra = {'compact': camera_feed.compact_pictures(screen), **({'atlas': atlas, 'modes': modes} if atlas else {}),
+                     **({'renders': renders} if renders else {})}
             found = await self.camera.live(entities, size, grounds, paces, **extra)
             if found:
                 listing = ','.join(found[2])
@@ -2204,6 +2282,49 @@ class Manager:
             LOG.warning('Live pictures: no address for this app on the LAN; set SCREEN_CAMERA_URL')
         await self.send_auxiliary(inbox, {'v': 1, 'op': 'camera', 't': 'live', 'e': listing, 'u': url}, action, request)
         LOG.info('Live pictures of %s on %s%s', ', '.join(entities), screen['name'], '' if url else ': no image')
+
+    # How many drawn map cards are kept: a page's maps in both looks, and the page before it (docs/MAP.md).
+    MAP_RENDERS_KEPT = 8
+
+    def map_render(self, entity, name, options, dark):
+        """(mark, draw) for one map tile of a saved layout, for CameraFeed.live.
+
+        The mark is the tile's movement mark plus the look, so the strip's cache key is unique per drawn picture. It
+        is worked out again on every load, and `draw` reads Home Assistant's states when it runs rather than now, so
+        reloading the same link after someone moved draws where they are then.
+        """
+        tile = {'entity': entity, 'name': name, 'options': dict(options)}
+
+        def mark():
+            return f"{map_card.fingerprint(tile, self.ha.states)}{'-dark' if dark else ''}"
+
+        async def draw(width, height):
+            basemap = await self.map_basemap(tile, (width, height))
+            drawn = await asyncio.get_running_loop().run_in_executor(
+                None, functools.partial(map_card.render, (width, height), tile, self.ha.states, dark=dark,
+                                        basemap_image=basemap, cache=self.map_renders))
+            while len(self.map_renders) > self.MAP_RENDERS_KEPT:
+                del self.map_renders[next(iter(self.map_renders))]
+            return drawn
+        return mark, draw
+
+    async def map_basemap(self, tile, size):
+        """Home Assistant's own basemap under this frame, or None for a card drawn from the zones alone.
+
+        Nothing is asked for a card whose basemap is None, or a frame too short to carry a legible attribution pill:
+        the licence is a condition of using the tiles (map_card.wants_basemap).
+        """
+        if self.basemap is None or not map_card.wants_basemap(tile, size):
+            return None
+        try:
+            view = map_card.view_of(size, tile, self.ha.states)
+            return await self.basemap.image(view, size)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            LOG.info('No basemap for the map of %s (%s): it is drawn from the zones alone',
+                     tile['entity'], type(error).__name__)
+            return None
 
     async def cover_message(self, entity, size, background):
         """The screen message with a link to a media player's cover at `size` with `background` behind the corners,
@@ -2812,6 +2933,42 @@ def create_app(manager, development=False):
             return web.Response(status=304, headers=headers)
         return web.Response(body=body, content_type='image/bmp', headers=headers)
 
+    async def map_preview(request):
+        # A map card on the mockup (app 0.4.24): the add-on draws it here as it draws it for a screen, and answers
+        # pixels. The tile is not saved yet, so its choices come from the query, and every one of them goes through
+        # the same validation a save runs (core.validate_layout): nothing the browser sends can widen what is drawn.
+        entity = request.query.get('entity', '')
+        options = {'display': 'map'}
+        companions = [value for value in request.query.getall('map', []) if value]
+        if companions:
+            options['map'] = companions
+        for key in ('zoom', 'labels', 'basemap', 'overlay'):
+            if request.query.get(key):
+                options[key] = request.query[key]
+        if not entity.startswith('person.') or entity not in manager.ha.states:
+            raise web.HTTPNotFound()
+        try:
+            tile = validate_layout({'title': 'Preview', 'tiles': [{'entity': entity, 'name': '', 'options': options}]})['tiles'][0]
+        except ValueError:
+            raise web.HTTPNotFound()
+        size = (512, 320)
+        dark = request.query.get('dark') == '1'
+        mark = f"{map_card.fingerprint(tile, manager.ha.states)}{'-dark' if dark else ''}"
+        tag = f'"{mark}-map{size[0]}x{size[1]}"'
+        headers = {'ETag': tag, 'Cache-Control': 'private, max-age=30'}
+        if request.headers.get('If-None-Match') == tag:
+            return web.Response(status=304, headers=headers)
+        basemap = await manager.map_basemap(tile, size)
+        try:
+            image = await asyncio.get_running_loop().run_in_executor(
+                None, functools.partial(map_card.render, size, tile, manager.ha.states, dark=dark,
+                                        basemap_image=basemap, cache=manager.map_renders))
+            body = await asyncio.get_running_loop().run_in_executor(None, camera_feed.tile_art.bmp, image)
+        except Exception as error:
+            LOG.info('The map preview of %s cannot be drawn (%s)', entity, type(error).__name__)
+            raise web.HTTPNotFound()
+        return web.Response(body=body, content_type='image/bmp', headers=headers)
+
     async def states(request):
         """Live values for the editor's mockup (app 0.2.73): the state, Home Assistant's word and the attributes a
         card shows, for the tiles on the page, saved or not. At most sixty entities per request."""
@@ -3054,6 +3211,7 @@ def create_app(manager, development=False):
     app.router.add_get('/api/history-preview', preview_history)
     app.router.add_get('/api/media-art', media_art_preview)
     app.router.add_get('/api/camera-preview', camera_preview)
+    app.router.add_get('/api/map-preview', map_preview)
     app.router.add_post('/api/firmware-preview', firmware_preview)
     app.router.add_post('/api/firmware-preview/import', import_document)
     app.router.add_post('/api/firmware-preview/action', firmware_preview_action)

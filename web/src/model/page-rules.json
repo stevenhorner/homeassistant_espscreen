@@ -110,6 +110,11 @@
       "standard",
       "watch",
       "cover"
+    ],
+    "person": [
+      "standard",
+      "watch",
+      "map"
     ]
   },
   "wideOnly": [
@@ -210,6 +215,29 @@
     ],
     "overlay": [
       "name",
+      "none"
+    ]
+  },
+  "map": {
+    "domains": [
+      "device_tracker",
+      "person"
+    ],
+    "max": 8,
+    "zoom": [
+      "fit",
+      "17",
+      "15",
+      "13",
+      "11"
+    ],
+    "labels": [
+      "names",
+      "initials",
+      "nothing"
+    ],
+    "basemap": [
+      "auto",
       "none"
     ]
   },

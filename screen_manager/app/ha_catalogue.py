@@ -182,6 +182,9 @@ def capabilities(entity_id, actions, state, services):
     elif domain == 'media_player':
         # The album cover in the icon's place (app 0.2.92), a Guition again.
         displays.append('cover')
+    elif domain == 'person':
+        # A map around this person (app 0.4.24): the editor offers it on a board that draws pictures (docs/MAP.md).
+        displays.append('map')
     controls = [key for key, requirements in CONTROLS.get(domain, {}).items()
                 if _fits(requirements, actions, attributes, services)
                 and not (domain == 'climate' and key == 'setpoint'

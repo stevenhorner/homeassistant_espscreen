@@ -197,6 +197,21 @@ const cameraCard = computed(() => display.value === 'live' && ['camera', 'image'
 const cameraPicture = computed(() => cameraCard.value ? `api/camera-preview?entity=${encodeURIComponent(props.tile.entity)}` : '');
 const cameraLoaded = ref(false);
 watch(cameraPicture, () => { cameraLoaded.value = false; });
+// A map card (app 0.4.24): the add-on draws the mockup's picture with the same renderer a screen gets, from the
+// tile's own choices, so what stands here is what will stand on the glass. No coordinate reaches the browser either.
+const mapCard = computed(() => display.value === 'map' && domain.value === 'person');
+const mapPicture = computed(() => {
+  if (!mapCard.value) return '';
+  const query = new URLSearchParams({ entity: props.tile.entity });
+  for (const id of (props.tile.options?.map as string[] | undefined) || []) query.append('map', id);
+  for (const key of ['zoom', 'labels', 'basemap', 'overlay'] as const) {
+    const value = props.tile.options?.[key];
+    if (value !== undefined) query.set(key, String(value));
+  }
+  return `api/map-preview?${query}`;
+});
+const mapLoaded = ref(false);
+watch(mapPicture, () => { mapLoaded.value = false; });
 const mediaSubtitle = computed(() => [current.value?.a?.media_artist, current.value?.a?.media_album_name].filter(Boolean).join(' · '));
 const features = computed(() => Number(current.value?.a?.supported_features || 0));
 // The screens give a control that fills its room the content width of one cell, so its edges stand where the
@@ -241,7 +256,7 @@ async function onKey(e: KeyboardEvent) {
     <!-- The same remove key as on a tile, at the circle's corner. -->
     <button v-if="live && !preview" type="button" class="remove" :title="t('editor.tile_card.remove')" :aria-label="t('editor.tile_card.remove_named', { name })" @click.stop="removeTile(tile)">✕</button>
   </span>
-  <div v-else class="tile" :class="{ wide, full, tall, 'tall-action': tallAction || tallStack, photo: artworkLoaded && !!artwork, camera: cameraCard && cameraLoaded, bare, placeholder: placeholder || (!live && !foreign), chosen }" :data-slot="slot" :data-tile-id="tile.id" :data-columns="shape.columns" :data-rows="shape.rows"
+  <div v-else class="tile" :class="{ wide, full, tall, 'tall-action': tallAction || tallStack, photo: artworkLoaded && !!artwork, camera: (cameraCard && cameraLoaded) || (mapCard && mapLoaded), bare, placeholder: placeholder || (!live && !foreign), chosen }" :data-slot="slot" :data-tile-id="tile.id" :data-columns="shape.columns" :data-rows="shape.rows"
     :style="{ gridColumn: `${slot % grid.columns + 1} / span ${shape.columns}`, gridRow: `${Math.floor(slot % grid.slots / grid.columns) + 1} / span ${shape.rows}`, ...(background && !bare ? { backgroundColor: background } : {}), '--tile-icon': palette.icon, '--tile-circle': palette.circle, '--tile-accent': palette.accent }"
     :tabindex="!foreign && (preview ? goesTo : live) ? 0 : -1" :role="!foreign && (preview ? goesTo : live) ? 'button' : undefined" :aria-label="live ? label : undefined"
     v-drag="preview || foreign ? null : { kind: 'tile', tile }" @click="activate" @keydown="live && onKey($event)">
@@ -296,6 +311,11 @@ async function onKey(e: KeyboardEvent) {
     <template v-else-if="cameraCard">
       <img v-if="cameraPicture" :key="cameraPicture" class="camera-art" :class="tile.options?.fit === 'contain' ? 'contain' : 'fill'" :src="cameraPicture" alt="" @load="cameraLoaded = true" @error="cameraLoaded = false" />
       <span v-if="!cameraLoaded" class="head"><span class="ic mdi">{{ glyph(tileIconCp(tile)) }}</span><span class="tx"><span class="nm">{{ name }}</span><span v-if="line" class="st" :class="{ off: gone }">{{ line }}</span></span></span>
+      <span v-else-if="tile.options?.overlay !== 'none'" class="camera-name"><span>{{ name }}</span></span>
+    </template>
+    <template v-else-if="mapCard">
+      <img v-if="mapPicture" :key="mapPicture" class="map-art" :src="mapPicture" alt="" @load="mapLoaded = true" @error="mapLoaded = false" />
+      <span v-if="!mapLoaded" class="head"><span class="ic mdi">{{ glyph(tileIconCp(tile)) }}</span><span class="tx"><span class="nm">{{ name }}</span><span v-if="line" class="st" :class="{ off: gone }">{{ line }}</span></span></span>
       <span v-else-if="tile.options?.overlay !== 'none'" class="camera-name"><span>{{ name }}</span></span>
     </template>
     <template v-else-if="full && !tall">
@@ -456,6 +476,8 @@ async function onKey(e: KeyboardEvent) {
 .tile .camera-art { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; }
 .tile .camera-art.fill { object-fit: cover; }
 .tile .camera-art.contain { object-fit: contain; }
+/* A map fills its card exactly, because the add-on drew it at the frame's own size. */
+.tile .map-art { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; opacity: 1; pointer-events: none; }
 .tile.camera { justify-content: end; }
 .tile.camera .camera-art { opacity: 1; }
 /* The shade the add-on puts under the name (tile_art.FADE_SHARE, FADE_DEPTH). */

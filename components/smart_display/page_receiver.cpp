@@ -672,6 +672,9 @@ std::string receive(const std::string &payload) {
     next.state_word = string(extra["w"], 32);
     // A value of this entity the second line was set to: the finished line, or seconds for a moment in time.
     next.subtitle = string(extra["s"], 64);
+    // A map card's movement mark (app 0.4.24): a short hash of where its people are, never a place. A changed mark
+    // is a changed wish, so the card asks the app for a new picture; nothing here polls (runtime_tiles.h live_tick).
+    next.map_mark = string(extra["mk"], 16);
     next.subtitle_at = extra["sm"].is<unsigned>() ? extra["sm"].as<unsigned>() : 0;
     // An alarm panel (app 0.3.8+, firmware 0.3.3+): how it takes codes, who changed it, and a delay's end.
     if (tile.domain() == "alarm_control_panel") {

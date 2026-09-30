@@ -807,6 +807,36 @@ class PictureCards(unittest.TestCase):
             top, bottom = image.getpixel((300, 40)), image.getpixel((300, 298))
             self.assertLess(sum(bottom), sum(top) * 0.55)
 
+    def test_the_composer_takes_a_frame_that_is_already_drawn(self):
+        """A map card is rendered in the app (map_card.render), so its frame arrives as a picture, not as bytes.
+
+        One composer for cameras, covers and maps, and no encode-then-decode round trip in between (app 0.4.24)."""
+        import io, tile_art
+        from PIL import Image
+        drawn = Image.new('RGB', (200, 300))
+        for y in range(300):
+            drawn.paste((y % 256, 200 - y // 2, 90), (0, y, 200, y + 1))
+        raw = io.BytesIO(); drawn.save(raw, 'PNG')
+        atlas = tile_art.parse('[[0,0,200,300,10,0]]', (480, 480), 1)
+        for modes in ([('fill', False)], [('fill', True)]):
+            direct = tile_art.encode([drawn], [0xE7E7E7], atlas, modes)
+            through_bytes = tile_art.encode([raw.getvalue()], [0xE7E7E7], atlas, modes)
+            self.assertEqual(direct, through_bytes, modes)
+        # A frame drawn at exactly its own size is not resampled: the pixels are the ones the renderer made.
+        plain = tile_art.parse('[[0,0,200,300,0,0]]', (480, 480), 1)
+        with Image.open(io.BytesIO(tile_art.encode([drawn], [0xE7E7E7], plain, [('fill', False)]))) as out:
+            self.assertEqual(out.convert('RGB').tobytes(), drawn.tobytes())
+        # The shade under the name and 8-bit colour work on a drawn frame too.
+        faded = tile_art.encode([drawn], [0xE7E7E7], plain, [('fill', True)])
+        with Image.open(io.BytesIO(faded)) as out:
+            image = out.convert('RGB')
+            self.assertLess(sum(image.getpixel((100, 296))), sum(image.getpixel((100, 40))))
+        small = tile_art.encode([drawn], [0xE7E7E7], plain, [('fill', False)], compact=True)
+        self.assertEqual(int.from_bytes(small[28:30], 'little'), 8)
+        # The renderer's own image is left as it was: the composer may be handed a cached frame.
+        self.assertEqual(drawn.size, (200, 300))
+        self.assertEqual(drawn.mode, 'RGB')
+
 
 class LiveTiles(unittest.TestCase):
     """A live picture on a camera tile (app 0.2.91, firmware 0.2.77): the page's tiles as one strip."""
@@ -1047,3 +1077,57 @@ class LiveApp(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MapPictures(unittest.TestCase):
+    """A map tile is one more pictured tile (app 0.4.24, firmware 0.15.0): the add-on draws the whole frame and the
+    firmware reuses `render_camera_card` unchanged, so no map layout arithmetic exists in C++."""
+
+    def source_of(self, function):
+        return TILES.split(function, 1)[1].split('\n}\n', 1)[0]
+
+    def line_of(self, start):
+        return next(line for line in TILES.splitlines() if line.startswith(start))
+
+    def test_a_map_tile_fills_its_card_like_a_camera(self):
+        self.assertIn('t.is_map()', self.line_of('inline bool card_art(const Tile &t'))
+        # The camera's own card code is what draws it: no second card function for a map.
+        self.assertNotIn('render_map_card', TILES)
+        self.assertIn('(t.live()||t.is_map())&&render_camera_card(', TILES)
+
+    def test_the_movement_mark_is_what_the_screen_wishes_for(self):
+        wanted = self.source_of('inline LiveWish live_wanted(')
+        self.assertIn('map_mark', wanted)
+        # A map never sets a pace of its own: only the mark makes it a different wish.
+        self.assertNotIn('is_map()) { want.every', wanted)
+        receiver = (ROOT / 'components/smart_display/page_receiver.cpp').read_text()
+        self.assertIn('next.map_mark = string(extra["mk"], 16);', receiver)
+
+    def test_the_look_is_part_of_the_wish_so_switching_it_is_another_picture(self):
+        # The look has to be in the wish itself, not only in the request: `live_key` is what the picture store keeps a
+        # picture under, and a map drawn for the light look must never be adopted for the dark one. The tile's ground
+        # does change with the look, but not for a picture that came back smaller than its frame (live_place paints
+        # those on CAMERA_PAGE, which is black in both looks), so the ground alone is no guarantee.
+        self.assertIn('dark = false;', self.line_of('struct LiveWish'))
+        self.assertIn('want.dark = theme::dark;', self.source_of('inline LiveWish live_wanted('))
+        key = self.source_of('inline std::string live_key(const LiveWish &w) {')
+        self.assertIn('w.dark', key)
+        self.assertIn('want.dark != live_wish.dark', self.source_of('inline void live_tick(uint32_t now) {'))
+        request = self.source_of('inline void live_request(')
+        self.assertIn('"dark"', request)
+        self.assertIn('live_wish.dark', request)
+
+    def test_the_shared_spinner_turns_for_a_map_too(self):
+        # `live_waiting` asks only whether this tile's picture is in the strip the screen has open, whatever kind of
+        # tile it is, so a map waits behind the same spinner a camera does without a line of its own.
+        waiting = self.source_of('inline bool live_waiting(const Tile &t) {')
+        self.assertNotIn('t.live()', waiting)
+        self.assertNotIn('cover_tile', waiting)
+        self.assertIn('live_waiting(t)', self.source_of('inline bool render_camera_card('))
+
+    def test_a_map_tile_is_pictured_and_never_a_camera(self):
+        model = (ROOT / 'components/smart_display/runtime_model.h').read_text()
+        self.assertIn('bool is_map() const', model)
+        self.assertIn('return live() || cover_tile() || is_map();', model)
+        self.assertIn('std::string map_mark;', model)
+        self.assertIn('map_mark.empty()', model)

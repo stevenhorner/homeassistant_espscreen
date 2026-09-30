@@ -1,6 +1,7 @@
 """Browser transport for firmware image requests, using the device image feed."""
 import re
 import camera_feed
+import map_card
 
 # Firmware accepts HTTP image links. This virtual address is mapped to the
 # authenticated ingress endpoint by the browser, never fetched over the network.
@@ -17,7 +18,8 @@ async def answer(manager, data):
     fields = command.get('data')
     if command.get('service') != 'esphome.screen_camera' or command.get('event') is not True or command.get('templates'):
         raise ValueError('Only firmware image events are accepted.')
-    allowed = {'inbox', 'entity', 'tiles', 'size', 'bg', 'session', 'rev', 'view', 'atlas'}
+    # `dark` (app 0.4.24): the look the preview is in, which a map card is drawn for, as a screen sends it.
+    allowed = {'inbox', 'entity', 'tiles', 'size', 'bg', 'session', 'rev', 'view', 'atlas', 'dark'}
     if (not isinstance(fields, dict) or set(fields) - allowed or
             any(not isinstance(v, str) or len(v) > 8192 for v in fields.values()) or
             not re.fullmatch(r'[0-9a-f]{16}', fields.get('session', '')) or
@@ -39,8 +41,14 @@ async def answer(manager, data):
         if parsed is None:
             raise ValueError('Invalid image strip.')
         entities, size, grounds = parsed
-        paces = [0 if camera_feed.cover_supported(e) else camera_feed.LIVE_REFRESH_DEFAULT for e in entities]
-        extra = {'compact': True, **({'atlas': atlas} if atlas else {})}
+        # A map tile is drawn by the same renderer the screens get (server.Manager.map_render), in the preview's own
+        # look. There is no saved tile here, so the card is the plain one: its own person and nobody else. As on a
+        # screen, the tile's own entity is a person; a device tracker only ever rides along inside the app.
+        maps = [e for e in entities if e.startswith('person.')]
+        paces = [0 if camera_feed.cover_supported(e) or e in maps else camera_feed.LIVE_REFRESH_DEFAULT
+                 for e in entities]
+        renders = {e: manager.map_render(e, '', {'display': 'map'}, fields.get('dark') == '1') for e in maps}
+        extra = {'compact': True, **({'atlas': atlas} if atlas else {}), **({'renders': renders} if renders else {})}
         found = await manager.camera.live(entities, size, grounds, paces, **extra)
         entity = fields['tiles']
         if found:

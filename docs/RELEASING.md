@@ -1776,3 +1776,36 @@ Firmware only: storage version, tile protocol, preferences and keys are unchange
 - The `pressed: bg_opa: 45%` block of every card in `packages/cells/*.yaml` is gone
   (`tools/generate_cells.py`); the theme's `obj: pressed: bg_opa: 45%` in `packages/core.yaml`
   stays for everything else. `theme::pressed()` is new in `theme.h`.
+
+### Compatibility 0.4.24 / firmware 0.15.0
+
+A map card on a person tile ([docs/MAP.md](MAP.md)). Storage version, preferences and keys are
+unchanged: `pages-v2` keeps its shape, so `layout_migrations.py` needs no change, and `DOMAINS`,
+`HEADER_ONLY_DOMAINS` and `KEY_DOMAINS` are untouched. What is new is additive on both sides:
+
+| Change | Kind | Older firmware | Older add-on |
+| --- | --- | --- | --- |
+| `display: "map"` | A new value of an existing option | Never sent: `min_firmware` holds the layout back at 0.15.0 and the editor says to update first | Refuses it as an unknown display, which is the behaviour it always had |
+| `mapEntities`, `mapZoom`, `mapLabels`, `basemap` | New page-document appearance fields, stripped before the wire | Not applicable: they never travel | Refuses the document; storage stays `pages-v2`, so a rollback needs the usual data backup |
+| `x.mk` | A new key in the tile's existing extras block | Ignored, like every unknown extra | Not sent |
+| `dark` on `esphome.screen_camera` | A new field on an existing event | Not sent; the add-on then draws the light look | Ignored: `live_request` reads only the keys it knows |
+
+- **No hello capability is added.** The gate is the firmware version, as it is for live pictures and
+  album covers: `core.MAP_MIN_FIRMWARE` is `(0, 15, 0)` and names a shared `X.Y.0`.
+- **`LiveWish` gains `dark`**, so `live_key` (the name the picture store keeps a picture under)
+  carries the look. A map drawn for the light look is never adopted for the dark one. The tile's
+  ground already changes with the look, but not for a picture that came back smaller than its frame,
+  which is painted on `CAMERA_PAGE` and black in both looks.
+- **`Tile::pictured()` is now `live() || cover_tile() || is_map()`**, and `card_art` includes
+  `is_map()`. `render_camera_card` is unchanged: the add-on draws the whole frame, so no map
+  arithmetic exists in C++ and there is no `map_tile.h`.
+- **`tile_art.encode` accepts an already decoded `PIL.Image`** in `raws` beside raw bytes, so a
+  rendered frame joins the page's atlas without an encode-then-decode round trip. Camera frames are
+  byte for byte what they were.
+- **`CameraFeed.live` gains `renders`**: `{entity: (mark, draw)}`, where the mark stands where a
+  camera's digest stands in the strip's cache key and may be a callable, which is asked again on
+  every load so a reload after somebody moved draws them where they are then.
+- **The basemap route** is Home Assistant's own `/api/map_tiles/raster/{z}/{x}/{y}.png`, reached with
+  the add-on's existing token over the existing session, with a token from the websocket command
+  `map_tiles/access_token`. The add-on never contacts a tile server. Home Assistant without the
+  `map_tiles` integration makes the card schematic, logs once and is left alone for ten minutes.

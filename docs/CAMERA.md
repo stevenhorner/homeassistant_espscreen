@@ -223,6 +223,10 @@ Guition it comes in about 1.8 s (2.8 s with 4 KB).
   wait on its Wi-Fi less often while an image comes in: a loop held over 50 ms in one of eleven
   opens, against five of twelve with power save.
 
+A map card rides this same pipeline (app 0.4.24, [docs/MAP.md](MAP.md)): the add-on draws the whole
+card and it travels in the page's picture with the cameras, so the boards that show cameras are the
+boards that show a map.
+
 ## For developers
 
 - `screen_manager/app/camera_feed.py`: fetching, sizing, links and the port; `encode_live` and `CameraFeed.live`

@@ -425,7 +425,7 @@ inline bool live_marquee_ready(const Widgets &w, const Tile &t);
 // A picture over the whole card: a media player's cover on a 1x2 or 2x2 tile, dimmed under its track (firmware 0.3.1),
 // and a live camera in full colour with its name at the bottom, on a shade the app puts in the picture: on a 1x2 or 2x2
 // tile since 0.3.3, on every size since 0.3.7 (the small square in the icon's place said too little to be of use).
-inline bool card_art(const Tile &t) {return (t.row_span()>1 && !t.full && t.cover_tile()) || t.live();}
+inline bool card_art(const Tile &t) {return (t.row_span()>1 && !t.full && t.cover_tile()) || t.live() || t.is_map();}
 // All icon fonts carry the same generated glyph set, so the first bound one answers for all.
 inline bool has_icon_glyph(uint32_t codepoint) {
   for (auto &w : widgets) if (w.icon_font) { lv_font_glyph_dsc_t dsc; return lv_font_get_glyph_dsc(w.icon_font, &dsc, codepoint, 0); }
@@ -5731,7 +5731,7 @@ inline void render_slot(size_t slot) {
       const int vh=lv_font_get_line_height(face);lv_obj_set_size(w.value,d,vh);lv_obj_set_pos(w.value,(content_w-d)/2,(content_h-vh)/2);
     }
     lap(swipe_profile::GEOMETRY);
-  }else if(t.live()&&render_camera_card(w,t,content_w,content_h)){
+  }else if((t.live()||t.is_map())&&render_camera_card(w,t,content_w,content_h)){
     lap(swipe_profile::GEOMETRY);
   }else if((taller||(w.full&&(tile_controls::cover_tilt_selected(t)||tile_controls::climate_modes_selected(t))))&&!custom&&!watch&&!graph&&
      render_tall(w,t,with_panel,content_w,content_h)){
@@ -7400,7 +7400,11 @@ inline void cover_tick(uint32_t now) {
 // board's third online_image; a page of covers alone loads once. It waits for the alert's picture, a cover or the
 // camera full screen: one picture loads at a time. A page turn, a card over the page, another look or another track
 // (the picture's mark in the media state) changes what is wanted: the strip is dropped and asked for again.
-struct LiveWish { std::string entities, grounds, marks, atlas; int size = 0, atlas_x = 0, atlas_y = 0, atlas_scale = picture_store::SCALE_ONE; uint32_t every = 15000; bool cameras = false; };
+// `dark` (firmware 0.15.0+): the look the pictures were drawn for. A map card is drawn for the look the screen is in,
+// so it belongs in the wish and in `live_key`, the name the picture store keeps a picture under. The tile's ground
+// already changes with the look, but not for a picture that came back smaller than its frame (live_place paints those
+// on CAMERA_PAGE, black in both looks), so the ground alone would let a light map be adopted for the dark one.
+struct LiveWish { std::string entities, grounds, marks, atlas; int size = 0, atlas_x = 0, atlas_y = 0, atlas_scale = picture_store::SCALE_ONE; uint32_t every = 15000; bool cameras = false, dark = false; };
 inline LiveWish live_wish;
 inline camera_view::Feed live;  // entity: the list asked for
 inline std::string live_have;   // the list the strip on screen holds, "" for a tile without a picture
@@ -7432,6 +7436,7 @@ inline bool same_list(const std::string &asked, const std::string &answered) {
 // What the page on screen wants: its live camera tiles in slot order, with the colour under each picture's corners.
 inline LiveWish live_wanted() {
   LiveWish want;
+  want.dark = theme::dark;
   if (!model.ready()) return want;
   bool atlas=false;
   for(const auto &w:widgets)
@@ -7476,6 +7481,9 @@ inline LiveWish live_wanted() {
     snprintf(ground, sizeof(ground), "%06X", (unsigned) behind);
     want.grounds += ground;
     if (t.cover_tile()) want.marks += t.extra().media_picture;
+    // A map's mark is what makes it a different picture (app 0.4.24). It never sets a pace: a page of maps alone
+    // opens the feed once and then waits for something to move.
+    if (t.is_map()) want.marks += t.extra().map_mark;
     if (!want.size) want.size = lv_obj_get_style_width(w.circle, LV_PART_MAIN);
     // The page's pace is its quickest camera's: a page of 30 s cameras loaded every 15 s before firmware 0.3.7.
     if (t.live()) { want.every = want.cameras ? std::min<uint32_t>(want.every, t.refresh * 1000u) : t.refresh * 1000u; want.cameras = true; }
@@ -7488,7 +7496,7 @@ inline LiveWish live_wanted() {
 inline std::string live_key(const LiveWish &w) {
   char size[12];
   snprintf(size, sizeof(size), "%d", w.size);
-  return "live|" + w.entities + "|" + w.grounds + "|" + w.marks + "|" + w.atlas + "|" + size;
+  return "live|" + w.entities + "|" + w.grounds + "|" + w.marks + "|" + w.atlas + "|" + size + (w.dark ? "|d" : "|l");
 }
 // The strip's square for a tile, or nullptr while the strip is not here (or has no picture of this camera).
 inline lv_image_dsc_t *live_ready(const std::string &entity, int size, int &square) {
@@ -7625,8 +7633,10 @@ inline void live_request() {
   request.is_event = true;
   char size_text[12];
   snprintf(size_text, sizeof(size_text), "%d", live_wish.size);
-  const std::string keys[] = {"inbox", "tiles", "size", "bg", "session", "rev", "view", "atlas"}, values[] = {inbox, live_wish.entities, size_text, live_wish.grounds, protocol_key(transfer.lease), layout_rev, std::to_string(++live_view_id), live_wish.atlas};
-  const int count=live_wish.atlas.empty()?7:8;
+  // "dark" (app 0.4.24): a map is drawn in the look the screen is in, so the app needs to know which one. An older
+  // app reads only the keys it knows and simply ignores it.
+  const std::string keys[] = {"inbox", "tiles", "size", "bg", "session", "rev", "view", "dark", "atlas"}, values[] = {inbox, live_wish.entities, size_text, live_wish.grounds, protocol_key(transfer.lease), layout_rev, std::to_string(++live_view_id), live_wish.dark ? "1" : "0", live_wish.atlas};
+  const int count=live_wish.atlas.empty()?8:9;
   request.data.init(count);
   for (int i = 0; i < count; ++i) {
     esphome::api::HomeassistantServiceMap entry;
@@ -7641,7 +7651,7 @@ inline void live_tick(uint32_t now) {
   if (!live_supported()) return;
   LiveWish want = live_wanted();
   if (want.entities != live_wish.entities || want.grounds != live_wish.grounds || want.marks != live_wish.marks || want.size != live_wish.size || want.atlas != live_wish.atlas ||
-      want.atlas_x != live_wish.atlas_x || want.atlas_y != live_wish.atlas_y || want.atlas_scale != live_wish.atlas_scale) {
+      want.atlas_x != live_wish.atlas_x || want.atlas_y != live_wish.atlas_y || want.atlas_scale != live_wish.atlas_scale || want.dark != live_wish.dark) {
     live_wish = want;
     live_release();
     // A strip kept from before goes on the tiles at once: covers alone are then done, a camera loads its next picture
