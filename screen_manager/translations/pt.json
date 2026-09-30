@@ -110,7 +110,10 @@
       "home": "Casa",
       "no_network": "Sem rede",
       "configuration_problem": "Problema de configuração.\nAtualize o complemento.",
-      "configuration_version": "Problema de configuração.\nVerifique as versões do ecrã e do complemento."
+      "configuration_version": "Problema de configuração.\nVerifique as versões do ecrã e do complemento.",
+      "wifi_problem": "Problema na ligação Wi-Fi",
+      "wifi_hotspot": "Liga-te ao hotspot {name} para resolver.\nPalavra-passe: {password}",
+      "wifi_usb": "Verifica o nome e a palavra-passe do Wi-Fi e volta a instalar este ecrã por USB."
     },
     "preparing": {
       "default": "A arrumar os mosaicos",
@@ -271,12 +274,6 @@
       "recording": "A gravar",
       "tap_to_view": "Toque para ver",
       "no_image_yet": "Sem imagem"
-    },
-    "map": {
-      "no_location": "Sem localização",
-      "away": "1 fora | {n} fora",
-      "unavailable": "Indisponível",
-      "more": "+{n} mais"
     },
     "calibration": {
       "title": "Siga a calibração",
@@ -497,6 +494,12 @@
     },
     "navigation": {
       "back": "Voltar"
+    },
+    "map": {
+      "no_location": "Sem localização",
+      "away": "1 fora | {n} fora",
+      "unavailable": "Indisponível",
+      "more": "+{n} mais"
     }
   },
   "addon": {
@@ -531,7 +534,7 @@
         "page_titles": "Um ecrã tem no máximo {n} página. | Um ecrã tem no máximo {n} páginas.",
         "tiles_max": "Escolha no máximo {n} mosaico. | Escolha no máximo {n} mosaicos.",
         "unsupported": "Esta entidade não é suportada.",
-        "once": "Uma entidade só pode aparecer uma vez num ecrã.",
+        "once": "O relógio de cabeceira só pode estar uma vez num ecrã.",
         "tile_name": "O nome de um mosaico pode ter no máximo 80 bytes.",
         "unknown_settings": "Opções de mosaico desconhecidas.",
         "navigation_size": "Um mosaico de navegação tem largura normal ou dupla.",
@@ -551,11 +554,11 @@
         "pages": "Um ecrã tem {n} página. | Um ecrã tem de 1 a {n} páginas.",
         "eight_pages": "Estes mosaicos não cabem nas páginas deste ecrã; remova um mosaico ou torne um mais pequeno.",
         "camera_unsupported": "Este ecrã não consegue mostrar imagens de câmara.",
-        "map_unsupported": "Este ecrã não consegue mostrar um mapa.",
-        "map_entities": "Um mapa mostra no máximo 8 pessoas ou rastreadores, cada um uma vez, e não duas vezes a sua própria entidade.",
         "firmware_first": "Para estes mosaicos, instale primeiro o firmware {version} ou mais recente no ecrã.",
         "entity_gone": "Uma das entidades escolhidas já não existe. Procure a nova entidade.",
-        "ids_too_long": "Em conjunto, os IDs de entidade destes mosaicos são demasiado longos para caberem numa mensagem para o ecrã; remova alguns mosaicos."
+        "ids_too_long": "Em conjunto, os IDs de entidade destes mosaicos são demasiado longos para caberem numa mensagem para o ecrã; remova alguns mosaicos.",
+        "map_entities": "Um mapa mostra no máximo 8 pessoas ou rastreadores, cada um uma vez, e não duas vezes a sua própria entidade.",
+        "map_unsupported": "Este ecrã não consegue mostrar um mapa."
       },
       "top_bar": {
         "invalid": "Barra superior inválida; recarregue a página de gestão.",
@@ -583,6 +586,7 @@
         "not_for_a_screen": "{entity} não pode ir para um ecrã.",
         "not_on_screen": "{entity} não está neste ecrã.",
         "add_it_first": "{entity} não está neste ecrã; adicione-a primeiro.",
+        "key_stays": "{entity} está sob o relógio de cabeceira; mova-o aí no editor.",
         "not_on_spot": "{entity} não está no espaço {slot}.",
         "not_on_page": "{entity} não está na página {page}.",
         "move_where": "Indique a página ou o espaço para onde a mover.",
@@ -600,6 +604,7 @@
         "column_range": "Escolha uma coluna entre 1 e {last}; left e right são a primeira e a última.",
         "full_page_alone": "Um mosaico de página inteira ocupa toda a página {page}; não cabe lá mais nada.",
         "does_not_fit": "Isso não cabe na página {page}; um mosaico de largura dupla ocupa dois espaços.",
+        "size": "Este ecrã não tem cartões de {size}. Aceita: {sizes}.",
         "order_needed": "Indique as entidades pela ordem que pretende.",
         "order_not_on_screen": "Não estão neste ecrã: {entities}.",
         "order_not_on_page": "Não estão na página {page}: {entities}. Mova-as primeiro para lá.",
@@ -721,7 +726,7 @@
         "ambiguous_tile": "O evento do cartão tem uma origem ambígua; indica a página",
         "save_first": "Guarda a disposição das páginas antes de guardar as definições",
         "destination_exists": "O ecrã de destino já tem uma disposição guardada",
-        "update_tall": "Atualiza o ecrã para usar cartões mais altos",
+        "update_tall": "Atualiza o ecrã para usar estes tamanhos de cartão",
         "memory": "O ecrã não tem memória livre suficiente para esta disposição. Use menos blocos."
       },
       "feedback": {
@@ -1242,7 +1247,6 @@
       },
       "search": "Procurar",
       "screens": "Ecrãs",
-      "more": "Mais",
       "refresh": "Recarregar",
       "update": {
         "button": "Atualizar",
@@ -1250,7 +1254,8 @@
         "available": "Atualização para {version}",
         "no_profile": "Não foi encontrado nenhum perfil ESPHome com este nome de dispositivo.",
         "whats_new": "Novidades",
-        "full_log": "Registo completo"
+        "full_log": "Registo completo",
+        "short": "Atualização"
       },
       "host": {
         "hint": "O endereço IP, só desta vez; o firmware novo passa a comunicá-lo sozinho.",
@@ -1264,6 +1269,8 @@
         "not_flashed": "Ainda não está no Home Assistant. Já instalou o firmware? Adicione o dispositivo ESPHome em Configuração → Dispositivos & serviços e depois permita as ações do Home Assistant em Configurar. Ainda não? Firmware e USB → {file}."
       },
       "copy_api_key": "Copiar chave API",
+      "files": "Transferir ficheiros do ecrã",
+      "files_hint": "O YAML ESPHome do ecrã com as suas chaves, o Override YAML e um secrets.yaml com o Wi-Fi, para o compilar com o ESPHome no seu computador.",
       "details": {
         "room": "Divisão",
         "firmware": "Firmware",
@@ -1437,17 +1444,18 @@
         "alarm_control_panel": "Alarme",
         "lock": "Fechaduras"
       },
-      "more": "Mais ({n})",
-      "fewer": "Menos",
       "room": "Divisão",
-      "all_rooms": "Todas as divisões",
       "hide_placed": "Ocultar adicionadas",
       "hide_placed_title": "Ocultar o que já está neste ecrã",
+      "again": "Já está neste ecrã; adicione-o de novo para outro mosaico",
       "all_placed": "Tudo o que está aqui já está neste ecrã.",
       "none_found": "Nenhuma entidade encontrada. Experimente outro nome, divisão ou filtro.",
       "full": "Neste ecrã cabe {n} mosaico. | Neste ecrã cabem {n} mosaicos.",
       "full_update": "Neste ecrã cabe {n} mosaico; atualize o firmware para ter 48. | Neste ecrã cabem {n} mosaicos; atualize o firmware para ter 48.",
-      "hint": "Arraste para uma página ou toque em + para adicionar ao primeiro espaço livre. ⌘K procura em tudo."
+      "hint": "Arraste para uma página ou toque em + para adicionar ao primeiro espaço livre. ⌘K procura em tudo.",
+      "resize": "Arraste para redimensionar a biblioteca",
+      "filter_label": "Filtrar por tipo",
+      "no_room": "Sem divisão"
     },
     "domains": {
       "light": "Luz",
@@ -1528,16 +1536,16 @@
         "live_needs_firmware": "Uma imagem ao vivo precisa do firmware 0.2.77 ou mais recente: prima Atualizar no ecrã depois de guardar.",
         "live_card_hint": "A imagem preenche o mosaico, atualizada ao ritmo abaixo enquanto a página está no ecrã. Um toque continua a abri-la em ecrã inteiro.",
         "live_card_needs_firmware": "Uma imagem que preenche o mosaico precisa do firmware 0.3.7 ou mais recente: prima Atualizar no ecrã depois de guardar. Até lá o ecrã mostra uma imagem pequena no lugar do ícone.",
-        "map": "Mapa",
-        "map_hint": "Um mapa de onde estas pessoas estão. O add-on desenha-o e envia uma imagem para o ecrã, por isso nenhuma localização chega alguma vez ao próprio ecrã. A entidade do cartão é uma pessoa; adiciona abaixo um telemóvel ou um carro como acompanhante.",
-        "map_needs_firmware": "Um mapa precisa do firmware 0.15.0 ou mais recente: carrega em Atualizar no ecrã depois de guardar.",
         "cover": "Capa do álbum",
         "cover_hint": "A capa do álbum do que está a tocar no lugar do ícone, como no próprio mosaico do Home Assistant; um leitor sem imagem mantém o seu ícone. Um toque continua a abrir o cartão.",
         "cover_needs_firmware": "A capa do álbum no mosaico precisa do firmware 0.2.78 ou mais recente: prima Atualizar no ecrã depois de guardar.",
         "no_graph": "O Home Assistant não tem valores numéricos para esta entidade, por isso o gráfico fica vazio. Escolha outra apresentação.",
         "no_forecast": "Este serviço meteorológico não tem previsão diária no Home Assistant. Escolha outra apresentação.",
         "tall_cover_hint": "",
-        "face_needs_firmware": "Este relógio precisa do firmware 0.3.6 ou mais recente: prima Atualizar no ecrã depois de guardar. Até lá, o ecrã mostra o relógio digital."
+        "face_needs_firmware": "Este relógio precisa do firmware 0.3.6 ou mais recente: prima Atualizar no ecrã depois de guardar. Até lá, o ecrã mostra o relógio digital.",
+        "map": "Mapa",
+        "map_hint": "Um mapa de onde estas pessoas estão. O add-on desenha-o e envia uma imagem para o ecrã, por isso nenhuma localização chega alguma vez ao próprio ecrã. A entidade do cartão é uma pessoa; adiciona abaixo um telemóvel ou um carro como acompanhante.",
+        "map_needs_firmware": "Um mapa precisa do firmware 0.20.0 ou mais recente: carrega em Atualizar no ecrã depois de guardar."
       },
       "refresh": {
         "label": "Atualizar",
@@ -1554,50 +1562,6 @@
           "name": "Nome",
           "none": "Nada"
         }
-      },
-      "map": {
-        "entities": "No mapa",
-        "add": "Adicionar entidade",
-        "own": "Este cartão",
-        "remove": "Remover",
-        "full": "Um mapa mostra no máximo 8 pessoas ou rastreadores.",
-        "zoom": {
-          "label": "Zoom",
-          "fit": "Mostrar todos",
-          "17": "Rua",
-          "15": "Bairro",
-          "13": "Cidade",
-          "11": "Região"
-        },
-        "labels": {
-          "label": "Etiquetas",
-          "names": "Nomes",
-          "initials": "Iniciais",
-          "nothing": "Nada"
-        },
-        "basemap": {
-          "label": "Mapa base",
-          "auto": "Mapa do Home Assistant",
-          "none": "Nenhum",
-          "hint": "Mapa do Home Assistant: o add-on pede ao Home Assistant os mosaicos da área mostrada, e o Home Assistant vai buscá-los ao OpenStreetMap e guarda-os em cache. Só seguem um nível de zoom e dois números, nunca um nome ou uma entidade.",
-          "none_hint": "Nenhum: nada sai do Home Assistant. O cartão mostra as tuas zonas e as pessoas nelas sobre um fundo simples."
-        },
-        "privacy": "A imagem viaja sem cifra pela tua rede, como qualquer outra imagem, por isso um cartão de mapa mostra a qualquer pessoa nessa rede mais ou menos onde alguém está. Nunca é enviada para um ecrã uma localização, um token ou um endereço de mapa."
-      },
-      "size": {
-        "label": "Tamanho",
-        "single": "Normal",
-        "wide": "Largura dupla",
-        "full": "Página inteira",
-        "full_hint": "Página inteira: um botão grande na cor do próprio mosaico; em baixo ficam um deslizador, controlos ou um gráfico.",
-        "needs_firmware": "Um mosaico de página inteira precisa do firmware 0.2.62: prima primeiro Atualizar na lista de ecrãs.",
-        "tall": "1 × 2",
-        "square": "2 × 2",
-        "rectangle_hint": "Largura × altura em células. Usa o desenho atual do cartão."
-      },
-      "page": {
-        "label": "Página",
-        "new": "Nova página"
       },
       "controls": {
         "label": "Controlo direto no mosaico",
@@ -1667,15 +1631,44 @@
         "rows": "Alterar altura (setas cima/baixo)"
       },
       "sections": {
-        "text": "Texto",
         "look": "Aspeto",
-        "place": "Tamanho e lugar",
         "controls": "Controlos",
         "style": "Ícone e cor"
       },
       "keys": {
         "hint": "Arraste uma lâmpada, uma temperatura ou uma fechadura para os lugares redondos por baixo da hora, ou toque num lugar e escolha. São mosaicos: toque num para o configurar.",
-        "under": "Por baixo do relógio de cabeceira: um mosaico na sua forma redonda. Um toque faz o mesmo que num mosaico, e mantê-lo premido abre o seu cartão."
+        "under": "Por baixo do relógio de cabeceira: um mosaico na sua forma redonda. Um toque faz o mesmo que num mosaico, e mantê-lo premido abre o seu cartão.",
+        "name_shown": "Nome por baixo da tecla",
+        "name_shown_hint": "Desligado mostra só o círculo."
+      },
+      "map": {
+        "entities": "No mapa",
+        "add": "Adicionar entidade",
+        "own": "Este cartão",
+        "remove": "Remover",
+        "full": "Um mapa mostra no máximo 8 pessoas ou rastreadores.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Mostrar todos",
+          "17": "Rua",
+          "15": "Bairro",
+          "13": "Cidade",
+          "11": "Região"
+        },
+        "labels": {
+          "label": "Etiquetas",
+          "names": "Nomes",
+          "initials": "Iniciais",
+          "nothing": "Nada"
+        },
+        "basemap": {
+          "label": "Mapa base",
+          "auto": "Mapa do Home Assistant",
+          "none": "Nenhum",
+          "hint": "Mapa do Home Assistant: o add-on pede ao Home Assistant os mosaicos da área mostrada, e o Home Assistant vai buscá-los ao OpenStreetMap e guarda-os em cache. Só seguem um nível de zoom e dois números, nunca um nome ou uma entidade.",
+          "none_hint": "Nenhum: nada sai do Home Assistant. O cartão mostra as tuas zonas e as pessoas nelas sobre um fundo simples."
+        },
+        "privacy": "A imagem viaja sem cifra pela tua rede, como qualquer outra imagem, por isso um cartão de mapa mostra a qualquer pessoa nessa rede mais ou menos onde alguém está. Nunca é enviada para um ecrã uma localização, um token ou um endereço de mapa."
       }
     },
     "tile_card": {
@@ -1732,6 +1725,7 @@
       "name_placeholder": "Por exemplo: Sala de estar",
       "screen_name": "Título do ecrã",
       "screen_name_hint": "Todas as páginas sem título próprio mostram este.",
+      "no_title_hint": "Deixe vazio para mostrar apenas o logótipo.",
       "right": "Direita: hora, sensores ou um relógio",
       "item_label": "{name}, espaço {slot}. Enter: configurar; setas: mover",
       "remove_named": "Remover {name} da barra superior",
@@ -1937,14 +1931,12 @@
     },
     "installer": {
       "title": {
-        "setup": "Ligar e instalar.",
         "saved": "Perfil guardado.",
         "running": "Um momento…",
         "ready": "Pronto para descarregar.",
         "done": "Concluído.",
         "failed": "Não funcionou."
       },
-      "intro": "O Tessera cria o perfil próprio do ecrã com chaves únicas e compila o firmware. Ligue o ecrã com um cabo USB de dados à máquina onde corre o Home Assistant, ou ao computador que está a usar agora.",
       "board": "Que ecrã tem?",
       "board_title": "{name} · {inch} polegadas",
       "status": {
@@ -1965,10 +1957,12 @@
         "calibration": "Calibração do toque no primeiro arranque"
       },
       "choice": {
-        "DISPLAY_MODEL": "Controlador do ecrã"
+        "DISPLAY_MODEL": "Controlador do ecrã",
+        "GRID_ROWS": "Blocos por página"
       },
       "choice_hint": {
-        "DISPLAY_MODEL": "A maioria destas placas tem o primeiro. Escolha o outro se o ecrã mostrar ruído ou uma imagem distorcida."
+        "DISPLAY_MODEL": "A maioria destas placas tem o primeiro. Escolha o outro se o ecrã mostrar ruído ou uma imagem distorcida.",
+        "GRID_ROWS": "Quatro linhas cabem oito blocos menores numa página, para um ecrã com muitos interruptores. Três linhas mantêm os blocos maiores e mais fáceis de ler."
       },
       "choice_usual": "a maioria",
       "orientation": "Como vai ficar pendurado?",
@@ -1979,7 +1973,6 @@
       "name": "Nome",
       "name_placeholder": "Ecrã da sala",
       "device_name": "Nome do dispositivo",
-      "customize": "personalizar",
       "name_hint": "Cada ecrã tem o seu próprio perfil com as suas próprias chaves. Quatro ecrãs? Faça isto quatro vezes com um nome diferente.",
       "name_taken": "Outro ecrã já se chama assim. O Home Assistant numeraria os nomes das entidades deste, e as automações apontariam para o ecrã errado.",
       "device_name_hint": "Letras minúsculas, algarismos e hífenes. Um nome diferente para cada ecrã.",
@@ -1991,12 +1984,13 @@
         "new": "Preencha só uma vez: o Tessera guarda isto no secrets.yaml do ESPHome e os ecrãs seguintes usam-no automaticamente.",
         "missing": "Ainda faltam os dados de Wi-Fi no seu secrets.yaml do ESPHome. O Tessera só preenche as linhas em falta.",
         "ready": "A rede Wi-Fi vem do seu secrets.yaml do ESPHome.",
-        "invalid": "O secrets.yaml na pasta do ESPHome não é YAML válido. Corrija primeiro o ficheiro; não vai ser substituído."
+        "invalid": "O secrets.yaml na pasta do ESPHome não é YAML válido. Corrija primeiro o ficheiro; não vai ser substituído.",
+        "other": "Outra rede",
+        "other_note": "Todos os ecrãs são compilados com esta Wi-Fi; os que já tens adotam-na na próxima atualização."
       },
       "install_via": "Instalar através de",
-      "later": "Mais tarde · só guardar o perfil",
       "target": {
-        "usb": "Ligue o ecrã com um cabo USB de dados à máquina do Home Assistant; a lista atualiza-se sozinha. Ou escolha Este computador para instalar a partir deste navegador.",
+        "usb": "Ligue o ecrã com um cabo USB de dados à máquina do Home Assistant; aparece aqui sozinho. Está ligado ao computador que está a usar? Escolha A partir deste computador.",
         "download": "Descarregue o firmware e instale-o no ecrã a partir do seu próprio computador, no Chrome ou no Edge. Depois disso, as atualizações são feitas por Wi-Fi.",
         "later": "O perfil fica na pasta do ESPHome. Pode instalar mais tarde através de Firmware e USB ou a partir do ESPHome Device Builder.",
         "several": "Há mais do que uma placa ligada: escolha a porta deste ecrã.",
@@ -2046,12 +2040,75 @@
         "tiles": "{bold} De volta ao Tessera, o ecrã aparece na lista à esquerda em cerca de trinta segundos; até lá, aparece aí como «ainda não está no Home Assistant».",
         "tiles_bold": "Escolha os seus mosaicos."
       },
-      "log": "Registo do ESPHome",
       "retry": "Tentar novamente",
       "another": "Instalar outro ecrã",
       "start_over": "Recomeçar",
       "done": "Concluído",
-      "key_more": "Mostrar a chave API"
+      "key_more": "Mostrar a chave API",
+      "steps": {
+        "board": "Ecrã",
+        "setup": "Configurar",
+        "install": "Instalar"
+      },
+      "pick_title": "Que ecrã tens?",
+      "pick_intro": "Escolhe a tua placa. Procura por marca, tamanho ou o que tem impresso.",
+      "search": "Procurar por marca, tamanho ou modelo",
+      "sizes": {
+        "all": "Todos",
+        "small": "Até 4 polegadas",
+        "medium": "4 a 6 polegadas",
+        "large": "7 polegadas ou mais"
+      },
+      "none_found": "Nenhum ecrã corresponde a “{query}”.",
+      "try_virtual": "Ainda sem ecrã? Experimenta um ecrã de pré-visualização",
+      "setup_title": "Torna-o teu",
+      "install_title": "Como queres instalar?",
+      "next": "Seguinte",
+      "advanced": "Avançado",
+      "ways": {
+        "ha_title": "USB no Home Assistant",
+        "ha_found": "Encontrado: {port}",
+        "ha_waiting": "Liga o ecrã à máquina onde corre o Home Assistant",
+        "browser_title": "A partir deste computador",
+        "browser_detail": "Chrome ou Edge, com o ecrã na USB deste computador",
+        "download_title": "Transferir o ficheiro",
+        "download_detail": "Instala-o tu com o ESPHome Web",
+        "later_title": "Mais tarde",
+        "later_detail": "Guardar só as definições"
+      },
+      "steps_done": {
+        "prepare": "A preparar",
+        "build": "A compilar o firmware",
+        "write": "A escrever no ecrã",
+        "restart": "A arrancar",
+        "done": "Concluído",
+        "download": "Pronto a transferir"
+      },
+      "elapsed": "{time} decorridos",
+      "show_log": "Mostrar detalhes",
+      "hide_log": "Ocultar detalhes",
+      "next_title": "E agora",
+      "model": "Que modelo é?",
+      "model_hint": "Está impresso na parte de trás da placa. São parecidos, mas cada um precisa do seu firmware.",
+      "models": "{n} modelo | {n} modelos",
+      "arrive": {
+        "waiting": "À espera que {name} apareça na tua Wi-Fi...",
+        "seen": "{name} está na tua Wi-Fi. Emparelha-o agora no Home Assistant.",
+        "paired": "{name} está emparelhado com o Home Assistant.",
+        "missing": "{name} ainda não está na tua Wi-Fi",
+        "hotspot": "Olha para o ecrã: indica um hotspot e a palavra-passe. Liga-te com o telemóvel e escolhe lá a Wi-Fi certa. Ou define aqui a Wi-Fi certa e instala de novo.",
+        "no_hotspot": "Provavelmente o nome ou a palavra-passe da Wi-Fi estão errados. Define aqui a Wi-Fi certa e instala de novo, com o ecrã ainda no cabo.",
+        "change": "Mudar Wi-Fi e instalar de novo"
+      },
+      "choice_option": {
+        "GRID_ROWS": {
+          "3": "3 linhas",
+          "4": "4 linhas, blocos menores"
+        }
+      },
+      "choice_first": {
+        "GRID_ROWS": "o tamanho habitual"
+      }
     },
     "alerts": {
       "eyebrow": "Alertas · guia rápido",
@@ -2466,7 +2523,15 @@
       "saved": "Guardado neste navegador",
       "hint": "O próprio firmware do ecrã, desenhado a partir do layout que está a editar. Toque, mantenha premido e deslize como no ecrã. Nada é guardado.",
       "control": "Os toques controlam dispositivos",
-      "control_hint": "Ligado: um toque num mosaico executa a sua ação no Home Assistant, como no ecrã. Desligado: a pré-visualização mostra apenas o que um toque faz."
+      "control_hint": "Ligado: um toque num mosaico executa a sua ação no Home Assistant, como no ecrã. Desligado: a pré-visualização mostra apenas o que um toque faz.",
+      "skipped": "Não foi possível carregar o ecrã de pré-visualização {names}; foi deixado de fora."
+    },
+    "inspector": {
+      "kind": {
+        "tile": "Mosaico",
+        "page": "Página",
+        "bar": "Barra superior"
+      }
     }
   }
 }

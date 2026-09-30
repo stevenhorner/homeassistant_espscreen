@@ -165,7 +165,7 @@ class Endpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/api/camera-preview?entity=camera.unknown')).status, 404)
 
     async def test_the_map_mockup_is_drawn_here_and_carries_no_location(self):
-        """A map card on the mockup (app 0.4.24): the add-on draws it, as the screen gets it, and answers pixels.
+        """A map card on the mockup (app 0.4.33): the add-on draws it, as the screen gets it, and answers pixels.
 
         The basemap source is replaced here, so this test reaches no network; and what comes back is a BMP, so a
         coordinate never travels to the browser either."""
@@ -299,7 +299,7 @@ class Endpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/api/firmware-preview/images/abcdefghijklmnop.bmp')).status, 404)
 
     async def test_the_firmware_preview_draws_a_real_map(self):
-        """The WebAssembly preview asks for its pictures with the same event a screen fires (app 0.4.24).
+        """The WebAssembly preview asks for its pictures with the same event a screen fires (app 0.4.33).
 
         So a map tile in the preview is drawn by the same renderer, in the look the preview is in, and the `dark`
         field the firmware added is accepted here too."""
@@ -345,7 +345,8 @@ class Endpoints(unittest.IsolatedAsyncioTestCase):
         source = io.BytesIO()
         Image.new('RGB', (160, 80), (50, 120, 200)).save(source, 'PNG')
         self.manager.camera.fetch_cover = AsyncMock(return_value=source.getvalue())
-        fields = {'tiles': 'media_player.test', 'size': '64', 'bg': '123456', 'session': '1111111111111111',
+        # Firmware 0.16.0+ names each square's tile by index (`idx`); the preview takes the request with it.
+        fields = {'tiles': 'media_player.test', 'idx': '0', 'size': '64', 'bg': '123456', 'session': '1111111111111111',
                   'rev': '2222222222222222', 'view': '4', 'atlas': json.dumps([[0, 0, 120, 80, 8, 0]])}
         body = {'request': {'service': 'esphome.screen_camera', 'event': True, 'data': fields},
                 'shape': {'width': 720, 'height': 720}}
@@ -548,12 +549,14 @@ class Editor(unittest.TestCase):
     def test_full_page_and_navigation_tiles_are_in_the_editor(self):
         import editor_sources
         layout = editor_sources.source('model/layout.ts')
-        for marker in ('export const SIZES: Size[] = ["single", "wide", "tall", "square", "full"];', 'export const pageTarget', 'versionAtLeast(firmware, "0.2.62") ? grid.maxSlots'):
+        for marker in ('export const SIZES: Size[] = [...NAMED_SIZES];', 'export const pageTarget', 'versionAtLeast(firmware, "0.18.0")) return Math.min(FIRMWARE_MAX_TILES, grid.maxSlots)'):
             self.assertIn(marker, layout, marker)
         drawer = editor_sources.component('TileInspector')
-        for marker in ('tileSizeChoices(props.tile)', 't("editor.tile.goes_to.label")', 'retargetPageTile(tile, Number(v))'):
+        for marker in ("t('editor.tile.goes_to.label')", 'retargetPageTile(tile, Number(v))'):
             self.assertIn(marker, drawer, marker)
-        self.assertEqual((editor_sources.text('tile.size.full'), editor_sources.text('tile.goes_to.label')), ('Full page', 'Goes to page'))
+        # A tile's size, the whole page too, is set with its handles on the tile itself (app 0.4.32).
+        self.assertIn('resizeChoices(', editor_sources.source('store.ts'))
+        self.assertEqual(editor_sources.text('tile.goes_to.label'), 'Goes to page')
         self.assertIn(':class="{ wide, full, tall,', editor_sources.component('TileCard'))
         self.assertIn('"timer", "screen",', editor_sources.component('Library'))
         self.assertEqual(editor_sources.text('library.filters.screen'), 'Screen')

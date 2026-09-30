@@ -33,6 +33,7 @@
 #include "history_view.h"
 #include "camera_view.h"
 #include "kept_pages.h"
+#include "wifi_status.h"
 #include "picture_store.h"
 #include "media_card.h"
 #include "light_card.h"
@@ -92,8 +93,10 @@ inline const lv_font_t *watch_value_font = nullptr, *watch_icon_font = nullptr;
 inline const lv_font_t *clock_font = nullptr;
 // The climate card's setpoint, big enough to read across the room (FONT_SETPOINT_SIZE in the board file).
 inline const lv_font_t *setpoint_font = nullptr;
-// The bedside clock's digits (firmware 0.8.0+), the largest the board's page takes (FONT_BEDSIDE_SIZE, looks/shared/bedside.yaml).
+// The bedside clock's own digit step (firmware 0.8.0+), where the board has one (FONT_BEDSIDE_SIZE, looks/shared/digits.yaml).
 inline const lv_font_t *bedside_font = nullptr;
+// The display step (firmware 0.17.0+, packages/looks/shared/digits.yaml): digits as large as half a page's width.
+inline const lv_font_t *display_font = nullptr;
 // Text in the -/+ pill and the run key of direct controls; the board profile sets it.
 inline const lv_font_t *control_font = nullptr;
 // The smallest regular text (sublabel): axis labels and the legend of the history card.
@@ -317,6 +320,14 @@ struct Widgets {
   // A key of a bedside clock (firmware 0.8.0+): the card is the round key itself, `key_size` across, in the place its
   // clock gives it (place_page). The card, circle, icon and colours are a tile's; only the shape is the key's.
   bool key=false; int key_size=0;
+  // The heartbeat an alarm or lock circle of this card runs (an AlarmLook) and the state change it last marked
+  // (alarm_tile_look). They belong to the card, not to the slot: a kept page's cards leave the glass with their
+  // animation and come back with it (firmware 0.16.0+; before, a ring kept beating on a card whose lock had settled).
+  uint8_t alarm_look=0; uint32_t alarm_mark=0;
+  // The card's paint the colours were last drawn for (its background, bit 24 for "none"), next to `cached_active`: a
+  // tile whose background alone changed repaints too (firmware 0.17.0+; before, it waited for the entity's next state,
+  // which an idle timer never sends).
+  uint32_t cached_paint=UINT32_MAX;
   // `extra_full`: the size the parts were built for; a slot that changes between full and double width rebuilds them.
   // `base_circle`: the board's icon circle (TILE_ICON_SIZE), the one size of the head a board states.
   int base_circle=0;
@@ -334,6 +345,8 @@ struct Widgets {
   // a slider or a toggle. Objects are rebuilt only when the control set changes.
   lv_obj_t *panel{}; std::string panel_mode; bool panel_dirty=false, panel_full=false, panel_tall=false; int panel_w=0; uint16_t panel_layout_w=0,panel_layout_h=0;
   std::array<lv_obj_t *,3> keys{}, key_icons{}; std::array<int,3> key_commands{}; std::array<std::string,3> key_args; std::array<int,3> key_checked{};
+  // A thermostat's mode bar as its panel ("Mode", firmware 0.19.0): its segments, on the panel's track (pill).
+  std::array<lv_obj_t *,climate_tile::SEGMENTS> segments{};
   lv_obj_t *pill{}, *pill_value{}, *knob{}, *control_slider{}; int knob_on=-1;
   lv_color_t panel_accent{}, panel_text{};
   // Busy sheet: a translucent white cover with a small spinner while a command is under way.
@@ -564,16 +577,19 @@ inline void send_action(esphome::api::HomeassistantActionRequest &request, const
 #endif
   esphome::api::global_api_server->send_homeassistant_action(request);
 }
-inline void action(const std::string &service, const std::string &entity, const std::string &key="", const std::string &value="", bool watch=true) {
+// `key2` and `value2`: a second field, for a thermostat's range (both ends in one call, firmware 0.19.0).
+inline void action(const std::string &service, const std::string &entity, const std::string &key="", const std::string &value="", bool watch=true,
+                   const std::string &key2="", const std::string &value2="") {
   if (!fresh() || !valid_entity(entity)) return;
   esphome::api::HomeassistantActionRequest request;
   request.service = esphome::StringRef(service);
-  request.data.init(key.empty() ? 1 : 2);
+  request.data.init(1 + !key.empty() + !key2.empty());
   esphome::api::HomeassistantServiceMap entry;
   entry.key = esphome::StringRef("entity_id");
   entry.value = esphome::StringRef(entity);
   request.data.push_back(entry);
   if(!key.empty()) {esphome::api::HomeassistantServiceMap param;param.key=esphome::StringRef(key);param.value=esphome::StringRef(value);request.data.push_back(param);}
+  if(!key2.empty()) {esphome::api::HomeassistantServiceMap param;param.key=esphome::StringRef(key2);param.value=esphome::StringRef(value2);request.data.push_back(param);}
   send_action(request, entity, watch);
   ESP_LOGI("runtime_action","Sent service=%s entity=%s",service.c_str(),entity.c_str());
 }
@@ -1418,7 +1434,7 @@ inline void render_vacuum_detail(Tile &t,bool large,int width,int height,int pad
     auto *hero=detail_card(pad,y,inner,hero_h);
     vacuum_robot(hero,edge_hero,(hero_h-robot)/2,robot,look);
     // Locate, when the robot can do it (supported_features 512; unknown features keep the button).
-    bool locate=large && (!t.supported || (t.supported & 512));
+    bool locate=large && (!t.supported || (t.supported & tile_controls::feature::VACUUM_LOCATE));
     int key=std::min(ui::px(48),hero_h-ui::px(8)),text_x=edge_hero+robot+(ui::px(large?18:12)),text_w=inner-text_x-(locate?key+2*edge_hero:edge_hero);
     int line=lv_font_get_line_height(big),text_h=lv_font_get_line_height(text),space=ui::px(large?6:3);
     bool room=on_the_way && !t.extra().room.empty();
@@ -1901,9 +1917,43 @@ inline std::string climate_number_text(const Tile &t){
   const float shown=std::isfinite(t.edit_value)?t.edit_value:tile_controls::edit_target(t);
   return tile_controls::format_value(shown,tile_controls::edit_step(t),"°");
 }
+// A range (firmware 0.19.0): its two ends side by side in the number's place, as on Home Assistant's thermostat card.
+// A tap picks the end the -/+ move (Tile::range_end, the same one the tile's chip shows); that one is drawn in full,
+// the other at 70 %.
+inline lv_obj_t *climate_ends[2]={nullptr,nullptr};
+inline void climate_paint_ends(const Tile &t){
+  for(uint8_t i=0;i<2;++i){
+    if(!climate_ends[i])continue;
+    const uint8_t end=i?tile_controls::RANGE_HIGH:tile_controls::RANGE_LOW;
+    label(climate_ends[i],tile_controls::format_value(tile_controls::range_end(t,end),tile_controls::edit_step(t),"°"));
+    lv_obj_set_style_text_opa(climate_ends[i],end==t.range_end?LV_OPA_COVER:LV_OPA_70,0);
+  }
+}
+inline void climate_end_event(lv_event_t *e){
+  if(detail_index>=model.count)return;
+  auto &t=model.tiles[detail_index];
+  t.range_end=(uint8_t)(uintptr_t)lv_event_get_user_data(e);
+  climate_paint_ends(t);
+  refresh_tile(detail_index);   // the tile's chip says the same end
+}
+// One step of a range's chosen end, never past the other end: the number follows the finger at once, tick() sends both
+// ends after a short pause.
+inline void range_step(Tile &t,int direction){
+  const float step=tile_controls::edit_step(t);
+  const float low=tile_controls::range_end(t,tile_controls::RANGE_LOW),high=tile_controls::range_end(t,tile_controls::RANGE_HIGH);
+  if(t.range_end==tile_controls::RANGE_HIGH)t.edit_high=tile_controls::step_value(high,step,low,t.maximum,direction);
+  else t.edit_value=tile_controls::step_value(low,step,t.minimum,high,direction);
+  t.edit_since=esphome::millis();t.edit_sent=false;
+}
 // A -/+ tap: the number follows the finger at once, tick() sends the last value after a short pause, exactly
-// as the -/+ pill on a wide tile does.
+// as the -/+ pill on a wide tile does. On a range it moves the chosen end.
 inline void climate_step(Tile &t,int direction){
+  if(tile_controls::climate_range(t)){
+    range_step(t,direction);
+    climate_paint_ends(t);
+    if(detail_index<model.count)refresh_tile(detail_index);
+    return;
+  }
   const uint32_t now=esphome::millis();
   const float current=std::isfinite(t.edit_value)?t.edit_value:tile_controls::edit_target(t);
   t.edit_value=tile_controls::step_value(current,tile_controls::edit_step(t),t.minimum,t.maximum,direction);
@@ -1945,13 +1995,36 @@ inline void render_climate_detail(Tile &t,bool large,int width,int height,int co
   auto *down=climate_round_key(l.minus,tile_controls::glyph::MINUS,key_icons,theme::TRACK,theme::INK,CLIMATE_DOWN);
   auto *up=climate_round_key(l.plus,tile_controls::glyph::PLUS,key_icons,theme::TRACK,theme::INK,CLIMATE_UP);
   const float shown=std::isfinite(t.edit_value)?t.edit_value:tile_controls::edit_target(t);
-  if(known&&std::isfinite(shown)){
+  if(known&&std::isfinite(shown)&&!tile_controls::climate_range(t)){   // a range stops at the other end in climate_step
     if(shown<=t.minimum)lv_obj_add_state(down,LV_STATE_DISABLED);
     if(shown>=t.maximum)lv_obj_add_state(up,LV_STATE_DISABLED);
   }
   for(lv_obj_t *key:{down,up})lv_obj_add_event_cb(key,climate_hold,LV_EVENT_LONG_PRESSED_REPEAT,(void*)(intptr_t)(key==up?1:-1));
-  climate_number=detail_text(detail_root,climate_number_text(t),l.number.x,l.number.y,l.number.w,
-                             l.small_number?(watch_font?watch_font:number_font):number_font,LV_TEXT_ALIGN_CENTER,off?theme::OFF:theme::INK);
+  const lv_font_t *face=l.small_number?(watch_font?watch_font:number_font):number_font;
+  if(tile_controls::climate_range(t)){
+    // Both ends in the number's place, as Home Assistant's thermostat card draws a range: two numbers, the one the -/+
+    // moves in full and the other faded (ha-state-control-climate-temperature, "dual"). The largest face both fit in.
+    const float step=tile_controls::edit_step(t);
+    const std::string low=tile_controls::format_value(tile_controls::range_end(t,tile_controls::RANGE_LOW),step,"°"),
+                      high=tile_controls::format_value(tile_controls::range_end(t,tile_controls::RANGE_HIGH),step,"°");
+    const int gap=ui::px(large?16:8);
+    for(const lv_font_t *candidate:{face,watch_font,detail_font}){
+      if(!candidate)continue;
+      face=candidate;
+      if(face_covers(candidate,low+high)&&std::max(text_width(low,candidate),text_width(high,candidate))*2+gap<=l.number.w)break;
+    }
+    const int half=(l.number.w-gap)/2;
+    for(uint8_t i=0;i<2;++i){
+      auto *end=detail_text(detail_root,"",l.number.x+(i?half+gap:0),l.number.y,half,face,LV_TEXT_ALIGN_CENTER,off?theme::OFF:theme::INK);
+      lv_obj_add_flag(end,LV_OBJ_FLAG_CLICKABLE);
+      lv_obj_set_ext_click_area(end,gap/2);
+      lv_obj_add_event_cb(end,climate_end_event,LV_EVENT_SHORT_CLICKED,(void*)(uintptr_t)(i?tile_controls::RANGE_HIGH:tile_controls::RANGE_LOW));
+      climate_ends[i]=end;
+    }
+    climate_paint_ends(t);
+  }else{
+    climate_number=detail_text(detail_root,climate_number_text(t),l.number.x,l.number.y,l.number.w,face,LV_TEXT_ALIGN_CENTER,off?theme::OFF:theme::INK);
+  }
   // The word under the number, or what the thermostat is doing when the glass had no room for a line of its own.
   if(!l.caption.empty()){
     auto *caption=detail_text(detail_root,l.caption_is_status?card_status(t,true):std::string(tr(txt::climate_target)),
@@ -2209,10 +2282,9 @@ inline bool alarm_arrived(const Tile &t){return t.changed_at&&esphome::millis()-
 // A lock's heartbeat: slow while it moves, quicker while its tile waits for the second tap (lock section below).
 inline AlarmLook lock_look(const Tile &t);
 inline uint32_t lock_accent(const Tile &t);
-inline uint8_t alarm_tile_looks[CELLS_MAX]{};
-inline uint32_t alarm_tile_marks[CELLS_MAX]{};
 inline void alarm_tile_look(size_t slot,const Tile *t){
   if(slot>=widgets.size()||!widgets[slot].circle)return;
+  auto &w=widgets[slot];
   // A key of a bedside clock is its circle (render_slot): the ring grows out of the round card, since the card cuts off
   // what its children draw past its edge, and a circle as large as the card has no room inside it.
   lv_obj_t *circle=widgets[slot].key?widgets[slot].tile:widgets[slot].circle;
@@ -2222,21 +2294,21 @@ inline void alarm_tile_look(size_t slot,const Tile *t){
   const bool alarm=t&&(t->domain()=="alarm_control_panel"||lock);
   // The slot shows another tile now: its circle stands still.
   if(!alarm){
-    if(alarm_tile_looks[slot]||alarm_tile_marks[slot])alarm_still(circle);
-    alarm_tile_looks[slot]=LOOK_NONE;alarm_tile_marks[slot]=0;
+    if(w.alarm_look||w.alarm_mark)alarm_still(circle);
+    w.alarm_look=LOOK_NONE;w.alarm_mark=0;
     return;
   }
   const AlarmLook want=alarm&&awake()&&fresh()?(lock?lock_look(*t):alarm_look(*t)):LOOK_NONE;
   const bool large=ui::large();
-  if(alarm&&want==LOOK_NONE&&alarm_arrived(*t)&&alarm_tile_marks[slot]!=t->changed_at&&awake()){
-    alarm_tile_marks[slot]=t->changed_at;alarm_still(circle);alarm_tile_looks[slot]=LOOK_NONE;
+  if(alarm&&want==LOOK_NONE&&alarm_arrived(*t)&&w.alarm_mark!=t->changed_at&&awake()){
+    w.alarm_mark=t->changed_at;alarm_still(circle);w.alarm_look=LOOK_NONE;
     const bool closed=lock?t->state=="locked":alarm_panel::armed(t->state);
     if(closed)alarm_beat(circle,theme::state(alarm_panel::GREEN),600,ui::px(large?10:5),true);
     alarm_spring(circle,closed?120:0);
     return;
   }
-  if(want==alarm_tile_looks[slot])return;
-  alarm_tile_looks[slot]=want;alarm_still(circle);
+  if(want==w.alarm_look)return;
+  w.alarm_look=want;alarm_still(circle);
   if(want==LOOK_NONE)return;
   const uint32_t colour=theme::state(lock?lock_accent(*t):alarm_panel::color(t->state));
   alarm_beat(circle,colour,want==LOOK_ARMING?1600:want==LOOK_PENDING?600:1000,ui::px(large?10:5),false);
@@ -2469,6 +2541,8 @@ inline void alarm_state_arrived(unsigned index,const std::string &before){
   if(alarm_attempt.active&&t.entity==alarm_attempt_entity)alarm_settled(alarm_attempt.settle(t.state,esphome::millis()),true);
   if(!alarm_panel::calls_for_attention(t.state)||alarm_panel::calls_for_attention(before)||!t.available())return;
   if(!enabled||!model.ready())return;
+  // A panel on several tiles gets a state message per tile: the first of them wakes the screen, once.
+  for(size_t i=0;i<index;++i)if(model.tiles[i].entity==t.entity)return;
   ESP_LOGI("alarm","%s is %s: the screen wakes with its card",t.entity.c_str(),t.state.c_str());
   if(alarm_wake)alarm_wake();
   settings_screen::close();
@@ -2541,22 +2615,33 @@ inline void alarm_command(int cmd){
 // the code is the second tap. The animations are the alarm panel's: a heartbeat while the lock moves or waits for its
 // second tap, a ring going round while it moves, and a ring that closes round the lock when it locks.
 inline constexpr int LOCK_KEY_FIRST=700;   // 700 lock, 701 unlock, 702 open
-// The one "tap again" the screen waits for: which lock, on its tile or on its card, and since when.
-struct LockAsk { lock_panel::Confirm confirm; std::string entity; bool card=false; bool shown=false; };
-inline LockAsk lock_ask;
-// A line in place of the tile's state for a moment: a lock-only tile tapped while locked.
-inline std::string lock_note_entity;
-inline uint32_t lock_note_at=0;
+// The "tap again" a tile waits for lives on the tile (Tile::ask_act, firmware 0.16.0+); one tile waits at a time, and
+// `lock_waits` says whether any does, so lock_tick has nothing to look at otherwise.
+inline bool lock_waits=false;
+inline lock_panel::Confirm lock_ask_of(const Tile &t){
+  lock_panel::Confirm c;if(t.ask_act>=0){c.act=(lock_panel::Act)t.ask_act;c.since=t.ask_since;}return c;
+}
+inline void lock_keep_ask(Tile &t,const lock_panel::Confirm &c){t.ask_act=c.act==lock_panel::NONE?-1:(int8_t)c.act;t.ask_since=c.since;}
 inline lv_obj_t *lock_ring=nullptr;
 inline lock_panel::Lock lock_of(const Tile &t){
   lock_panel::Lock l;l.state=t.state;l.supported=t.supported;l.assumed=t.extra().assumed;l.available=t.available()&&fresh();return l;
 }
 inline lock_panel::Guard lock_guard(const Tile &t){return lock_panel::guard_of(t.guard);}
-inline bool lock_noting(const Tile &t){return lock_note_entity==t.entity&&esphome::millis()-lock_note_at<3000;}
+inline bool lock_noting(const Tile &t){return t.noted_at&&esphome::millis()-t.noted_at<3000;}
 inline bool lock_asking(const Tile &t,bool card,lock_panel::Act a=lock_panel::NONE){
-  const uint32_t now=esphome::millis();
-  if(lock_ask.entity!=t.entity||lock_ask.card!=card)return false;
-  return a==lock_panel::NONE?lock_ask.confirm.any(now):lock_ask.confirm.waiting(a,now);
+  if(t.ask_act<0||t.ask_card!=card)return false;
+  const uint32_t now=esphome::millis();const auto c=lock_ask_of(t);
+  return a==lock_panel::NONE?c.any(now):c.waiting(a,now);
+}
+// Ends the "tap again" of every tile but `keep`: each shows its state again at once, on its tile or its open card.
+inline void lock_end_asks(size_t keep=SIZE_MAX){
+  for(size_t i=0;i<model.count;++i){
+    auto &t=model.tiles[i];
+    if(i==keep||t.ask_act<0)continue;
+    t.ask_act=-1;
+    if(!t.ask_card)refresh_tile(i);
+    else if(detail_index==i&&detail_root&&!lv_obj_has_flag(detail_root,LV_OBJ_FLAG_HIDDEN))redraw_detail();
+  }
 }
 inline const char *lock_state_text(const std::string &state){
   using namespace screen_text;
@@ -2605,23 +2690,28 @@ inline void lock_do(unsigned index,lock_panel::Act act,bool card){
   if(!can(lock_of(t),act,lock_guard(t))||t.waiting(now))return;
   const auto &x=t.extra();
   if(needs_code(x.code_format,x.code_saved)){
-    lock_ask.confirm.clear();
+    t.ask_act=-1;
     if(!code_typable(x.code_format)){alarm_card_note=txt::alarm_letters;alarm_card_note_at=now;}
     else{alarm_wipe(alarm_pad.code);alarm_pad.open=true;alarm_pad.mode=act;alarm_pad.note=0;alarm_pad.entity=t.entity;}
     if(card)redraw_detail();else{active_index=(int)index;show_detail(index);}
     return;
   }
   if(confirms(act)){
-    if(lock_ask.entity!=t.entity||lock_ask.card!=card)lock_ask.confirm.clear();
-    lock_ask.entity=t.entity;lock_ask.card=card;
-    if(!lock_ask.confirm.press(act,now)){
-      lock_ask.shown=true;
+    // One tile waits at a time: a first tap here ends another tile's wait, and the card's wait is not the tile's.
+    lock_end_asks(index);
+    if(t.ask_card!=card)t.ask_act=-1;
+    t.ask_card=card;
+    auto c=lock_ask_of(t);
+    const bool second=c.press(act,now);
+    lock_keep_ask(t,c);
+    if(!second){
+      lock_waits=true;
       ESP_LOGI("lock","%s: tap again to %s",t.entity.c_str(),act==OPEN?"open":"unlock");
       if(card)redraw_detail();else refresh_tile(index);
       return;
     }
   }
-  lock_ask.confirm.clear();lock_ask.shown=false;
+  t.ask_act=-1;
   alarm_attempt.begin(act,false,now);alarm_attempt_entity=t.entity;
   action(service(act),t.entity);
   if(card)redraw_detail();else refresh_tile(index);
@@ -2632,7 +2722,7 @@ inline void lock_tap(unsigned index){
   auto &t=model.tiles[index];
   const auto act=lock_panel::tap(lock_of(t),lock_guard(t));
   if(act==lock_panel::NONE){
-    if(t.state=="locked"&&lock_guard(t)==lock_panel::Guard::LOCK_ONLY){lock_note_entity=t.entity;lock_note_at=esphome::millis();refresh_tile(index);}
+    if(t.state=="locked"&&lock_guard(t)==lock_panel::Guard::LOCK_ONLY){t.noted_at=std::max<uint32_t>(1,esphome::millis());refresh_tile(index);}
     return;
   }
   lock_do(index,act,false);
@@ -2769,19 +2859,22 @@ inline void lock_state_arrived(unsigned index,const std::string &before){
   auto &t=model.tiles[index];
   if(alarm_attempt.active&&t.entity==alarm_attempt_entity)
     alarm_settled(alarm_attempt.settle_if(lock_panel::reached(t.state,(lock_panel::Act)alarm_attempt.mode),esphome::millis()),true);
-  if(before!=t.state&&lock_ask.entity==t.entity){lock_ask.confirm.clear();}
+  if(before!=t.state)t.ask_act=-1;
 }
 // Every tick (tick()): a "tap again" that ran out, or a screen that went to sleep, puts the tile or the card back.
 inline void lock_tick(){
-  if(!lock_ask.shown)return;
+  if(!lock_waits)return;
   const uint32_t now=esphome::millis();
-  if(!awake())lock_ask.confirm.clear();
-  if(lock_ask.confirm.any(now))return;
-  lock_ask.shown=false;
-  for(size_t i=0;i<model.count;++i)if(model.tiles[i].entity==lock_ask.entity){
-    refresh_tile(i);
-    if(lock_ask.card&&detail_index==i&&detail_root&&!lv_obj_has_flag(detail_root,LV_OBJ_FLAG_HIDDEN))redraw_detail();
+  bool waiting=false;
+  for(size_t i=0;i<model.count;++i){
+    auto &t=model.tiles[i];
+    if(t.ask_act<0)continue;
+    if(awake()&&lock_ask_of(t).any(now)){waiting=true;continue;}
+    t.ask_act=-1;
+    if(!t.ask_card)refresh_tile(i);
+    else if(detail_index==i&&detail_root&&!lv_obj_has_flag(detail_root,LV_OBJ_FLAG_HIDDEN))redraw_detail();
   }
+  lock_waits=waiting;
 }
 inline void lock_command(int cmd){
   if(detail_index>=model.count)return;
@@ -2799,7 +2892,7 @@ inline AlarmLook lock_look(const Tile &t){
   return LOOK_NONE;
 }
 // A card that closes forgets the second tap its keys waited for.
-inline void lock_card_closed(){if(lock_ask.card)lock_ask.confirm.clear();}
+inline void lock_card_closed(){if(detail_index<model.count&&model.tiles[detail_index].ask_card)model.tiles[detail_index].ask_act=-1;}
 // ---- History card (firmware 0.2.51+): numbers as a line with axes, states as a timeline ----
 // Sensors, numbers, switches, binary sensors and people. The card asks the manager for the chosen range when it
 // opens (an hour, a day or a week; always 24 averages or 96 slots) and draws what comes back. A finger on the
@@ -3380,7 +3473,7 @@ inline void show_detail(unsigned index){
   }
   lv_obj_set_style_bg_color(detail_backdrop,theme::color(theme::PAGE),0);lv_obj_set_style_bg_opa(detail_backdrop,LV_OPA_COVER,0);
   lv_obj_remove_flag(detail_backdrop,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(detail_backdrop);
-  detail_action_count=0;detail_status=nullptr;detail_badge_status=nullptr;detail_switch=nullptr;climate_number=nullptr;detail_placed=false;detail_status_brief=false;history_forget();
+  detail_action_count=0;detail_status=nullptr;detail_badge_status=nullptr;detail_switch=nullptr;climate_number=nullptr;climate_ends[0]=climate_ends[1]=nullptr;detail_placed=false;detail_status_brief=false;history_forget();
   alarm_forget_widgets();media_progress_fill=nullptr;media_elapsed_label=nullptr;media_detail_picture=nullptr;weather_days_card=nullptr;weather_dots=nullptr;weather_chevron[0]=weather_chevron[1]=nullptr;light_value=nullptr;lv_obj_clean(detail_root);lv_obj_remove_flag(detail_root,LV_OBJ_FLAG_HIDDEN);lv_obj_move_foreground(detail_root);
   lv_obj_set_style_bg_color(detail_root,theme::color(theme::PAGE),0);lv_obj_set_style_bg_opa(detail_root,LV_OPA_COVER,0);
   // The card's room: capped to what a hand spans and centred, unless it shows a picture (the media card's
@@ -3718,8 +3811,8 @@ inline int content_width(const Widgets &w) {
 }
 // The name of a plain card. The compact look draws it in small letters for a cell of two columns (a CYD lying down);
 // a card whose name has more room than that (one column standing up, a double-width card, a 4-inch glass) gets the
-// same bold letters a little larger (label_wide in looks/compact.yaml), so the words are not small in a wide empty
-// card (GitHub #50). The standard look keeps one size. The room is the name's own, after a panel or a graph took
+// L step of the text set a little larger (WIDE_NAME_FONT in looks/compact.yaml; a bold 14 of its own before firmware
+// 0.17.0), so the words are not small in a wide empty card (GitHub #50). The standard look keeps one size. The room is the name's own, after a panel or a graph took
 // theirs.
 inline const lv_font_t *wide_name_font = nullptr;
 inline int wide_name_room() { return ui::mm(30); }
@@ -4178,6 +4271,31 @@ inline void render_calm_dial(Widgets &w,const Tile &t,bool large,int width,int h
   second_hand(w,now);
   if(new_hand)lv_obj_move_to_index(w.parts[18],lv_obj_get_index(w.parts[14]));
 }
+// The digit steps, largest first (packages/looks/shared/digits.yaml): the display step, the setpoint's and the clock
+// card's. A card takes the largest one that fits (largest_digits) and never brings a size of its own
+// (tests/test_font_set.py).
+inline std::array<const lv_font_t *,3> digit_steps(){return {display_font,setpoint_font,clock_font};}
+// The largest digit step whose digits are at most `height` tall and whose `text` is at most `width` wide; null if none.
+inline const lv_font_t *largest_digits(const char *text,int width,int height){
+  for(const lv_font_t *f:digit_steps()){
+    if(!f)continue;int top,h;digit_box(f,top,h);
+    if(h<=height && text_width(text,f)<=width)return f;
+  }
+  return nullptr;
+}
+// The bedside clock's digits: its own step where the board has one (a page a fifth larger than the display step), else
+// the display step; the 8 px place holder a board without its own step keeps is never drawn.
+inline const lv_font_t *bedside_digits(){
+  if(bedside_font && (!display_font || lv_font_get_line_height(bedside_font)>lv_font_get_line_height(display_font)))return bedside_font;
+  return display_font?display_font:setpoint_font?setpoint_font:clock_font;
+}
+// A card that only switches (a lamp, a switch, a fan) or only runs (a script, a scene, a button), with no other control
+// chosen: two rows tall, one column or two, it is one big key (firmware 0.17.0+), as the same card over a whole page is.
+inline bool big_key(const Tile &t){
+  const auto d=t.domain();
+  return (d=="light"||d=="switch"||d=="input_boolean"||d=="fan"||d=="script"||d=="scene"||d=="button"||d=="input_button") && t.inline_control!="slider" &&
+         (t.controls.empty()||t.controls=="toggle"||t.controls=="run"||t.controls=="none"||t.controls=="auto");
+}
 inline void render_flip(Widgets &w,const Tile &t,bool large,int width,int height){
   begin_extra(w,"flip",width,height);
   auto now=now_time?now_time():esphome::ESPTime{};
@@ -4191,6 +4309,32 @@ inline void render_flip(Widgets &w,const Tile &t,bool large,int width,int height
   const lv_font_t *fonts[]={setpoint_font,clock_font,watch_value_font,watch_font,w.value_font};
   int stop,sh;digit_box(small,stop,sh);
   const int aw=ampm.empty()?0:text_width(ampm,small);
+  // A card as wide as two columns and two rows or more, or a whole page (firmware 0.17.0+): the two blocks share its
+  // width, and one line under them carries the day at the left and AM or PM at the right. The digits are the board's
+  // display step (looks/shared/digits.yaml), else the largest digit step that fits a block.
+  if(w.full || (w.wide && t.row_span()>=2)){
+    // The blocks keep room above them and under the day's line, so on a low card (a compact look) they never touch its
+    // edge: at least 6 px, a twentieth of the card on a taller one.
+    const int line_gap=ui::px(large?12:6),gb=std::max(ui::px(6),width/36),bw=(width-gb)/2,air=std::max(ui::px(6),height/20);
+    const int bh=std::min(height-2*air-line_gap-sh,bw*92/100);
+    const lv_font_t *font=largest_digits("88",bw*88/100,bh*72/100);int dh=0;
+    if(font){int top;digit_box(font,top,dh);}
+    for(unsigned q=0;q<7;++q)if(w.parts[q])set_hidden(w.parts[q],!font);
+    if(!font){hide_face_text(w);return;}
+    const int radius=std::max(ui::px(4),bh/12),seam=std::max(1,bh/60);
+    const int by=(height-(bh+line_gap+sh))/2;
+    for(int b=0;b<2;++b){
+      const int x=b*(bw+gb);
+      part_rect(w,b,x,by,bw,bh,radius);
+      digit_label(w,2+b,font,x,by+(bh-dh)/2,bw,LV_TEXT_ALIGN_CENTER,b?mm:hh);
+      part_rect(w,4+b,x,by+bh/2-seam/2,bw,seam,0);
+    }
+    const std::string day=weekday_text(now)+" "+fill(fill(txt::date_day_month,"day",now.is_valid()?std::to_string(now.day_of_month):"--"),"month",month_short(now));
+    digit_label(w,16,small,0,by+bh+line_gap,std::max(1,width-aw-ui::px(8)),LV_TEXT_ALIGN_LEFT,day);set_hidden(w.parts[16],false);
+    digit_label(w,6,small,width-aw-2,by+bh+line_gap,aw+2,LV_TEXT_ALIGN_RIGHT,ampm);set_hidden(w.parts[6],ampm.empty());
+    if(w.parts[15])set_hidden(w.parts[15],true);if(w.parts[17])set_hidden(w.parts[17],true);
+    return;
+  }
   // The blocks: the largest digits whose blocks fit. A block is as tall as the room allows (a one-row card: the
   // card, into its padding; a page: a bit over half of it) and a little wider than tall. A card that is not a page
   // takes the two blocks side by side or one over the other, whichever gives the bigger blocks.
@@ -4292,7 +4436,6 @@ struct BedsideLayout {
   std::array<int, BEDSIDE_KEYS> key_x{}, key_y{};  // each key's top-left corner, content coordinates
   std::array<int, BEDSIDE_KEYS> name_x{}, name_y{}, name_w{};
 };
-inline const lv_font_t *bedside_digits(){return bedside_font?bedside_font:setpoint_font?setpoint_font:clock_font;}
 // `pad`: the card's own padding, so the room above the time counts from the card's edge as it looks.
 inline BedsideLayout bedside_layout(int w,int h,int pad,const std::vector<std::string> &names_in){
   BedsideLayout l;
@@ -4303,7 +4446,7 @@ inline BedsideLayout bedside_layout(int w,int h,int pad,const std::vector<std::s
   l.keys=std::min<unsigned>(names_in.size(),BEDSIDE_KEYS);
   // Names under the keys in the standard look; the compact look (a CYD) keeps the keys alone, its smallest letters
   // would be under the size the owner reads in the dark.
-  l.names=l.keys && ui::large();
+  l.names=l.keys && ui::large() && std::any_of(names_in.begin(),names_in.begin()+l.keys,[](const std::string &n){return !n.empty();});
   l.name_h=l.names?lv_font_get_line_height(small):0;l.name_gap=l.names?ui::px(8):0;
   int name_w=0;if(l.names)for(unsigned i=0;i<l.keys;++i)name_w=std::max(name_w,text_width(names_in[i],small));
   // A long name ends in dots rather than push the keys apart: a third of the card, about five letters and a half of
@@ -4323,7 +4466,7 @@ inline BedsideLayout bedside_layout(int w,int h,int pad,const std::vector<std::s
   const bool column=!row && l.keys && time_w<=w-col_w-ui::px(28) && (int)l.keys*col_d+((int)l.keys-1)*vg<=h;
   const bool stack=!row && !column && pair_w<=w && 2*l.digit_h+l.line_gap+band+(l.keys?3:2)*least<=card_h;
   l.mode=row?BedsideLayout::ROW:column?BedsideLayout::COLUMN:stack?BedsideLayout::STACK:BedsideLayout::ROW;
-  // The board's digits (FONT_BEDSIDE_SIZE, looks/shared/bedside.yaml) are sized for one of the three to fit; the self test fails a
+  // The board's digits (bedside_digits, looks/shared/digits.yaml) are sized for one of the three to fit; the self test fails a
   // board where none does, instead of the time running into its keys.
   l.fits=row||column||stack;
   if(l.mode==BedsideLayout::COLUMN){
@@ -4357,7 +4500,8 @@ inline std::vector<std::string> bedside_names(size_t index){
   std::vector<std::string> names;
   for(unsigned k=0;k<bedside_key_room();++k)for(size_t i=0;i<model.count;++i){
     const auto &t=model.tiles[i];
-    if(t.is_key() && (size_t)t.parent==index && t.key==k){names.push_back(t.name.empty()?t.entity:t.name);break;}
+    // A key whose name is hidden (overlay "none", firmware 0.17.0+) keeps its place with an empty name.
+    if(t.is_key() && (size_t)t.parent==index && t.key==k){names.push_back(!t.overlay?std::string():t.name.empty()?t.entity:t.name);break;}
   }
   return names;
 }
@@ -4381,16 +4525,17 @@ inline void render_bedside(Widgets &w,const Tile &t,int width,int height){
     if(w.parts[1])set_hidden(w.parts[1],true);
   }
   set_color(w.parts[0],LV_STYLE_TEXT_COLOR,ink);if(w.parts[1])set_color(w.parts[1],LV_STYLE_TEXT_COLOR,ink);
-  // AM or PM after the time, on its baseline, when the screen shows 12 hours.
+  // AM or PM under the end of the time when the screen shows 12 hours (firmware 0.17.0+): beside it, "10:08" already
+  // fills the width the digits were sized for and the letters ran off the glass (GitHub #93).
   if(!ampm.empty()){
     const int tw=text_width(l.mode==BedsideLayout::STACK?time.substr(time.find(':')+1):time,font);
-    int stop,sh;digit_box(small,stop,sh);
     const int last=l.mode==BedsideLayout::STACK?l.digits_y+2*l.digit_h+l.line_gap:l.digits_y+l.digit_h;
-    auto *p=digit_label(w,2,small,l.digits_x+(l.digits_w+tw)/2+ui::px(6),last-sh,text_width(ampm,small)+2,LV_TEXT_ALIGN_LEFT,ampm);
+    const int aw=text_width(ampm,small)+2,end=l.digits_x+(l.digits_w+tw)/2;
+    auto *p=digit_label(w,2,small,end-aw,last+ui::px(10),aw,LV_TEXT_ALIGN_LEFT,ampm);
     set_color(p,LV_STYLE_TEXT_COLOR,muted);set_hidden(p,false);
   }else if(w.parts[2])set_hidden(w.parts[2],true);
   for(unsigned i=0;i<BEDSIDE_KEYS;++i){
-    if(i<l.keys && l.names){
+    if(i<l.keys && l.names && !names[i].empty()){
       auto *p=part_label(w,3+i,small,l.name_x[i],l.name_y[i],l.name_w[i],l.mode==BedsideLayout::COLUMN?LV_TEXT_ALIGN_LEFT:LV_TEXT_ALIGN_CENTER,names[i]);
       lv_label_set_long_mode(p,LV_LABEL_LONG_DOT);set_color(p,LV_STYLE_TEXT_COLOR,muted);set_hidden(p,false);
     }else if(w.parts[3+i])set_hidden(w.parts[3+i],true);
@@ -4713,6 +4858,13 @@ inline void render_sunpath(Widgets &w,const Tile &t,bool large,int width,int hei
 
 // ---- Direct controls on wide cards (Home Assistant entity-row style) ----
 struct PanelMetrics { int key_w, key_h, radius, gap, pill_w, pill_key, slider_w, slider_h, toggle_w, toggle_h, run_pad, text_gap, ext; };
+// A thermostat's mode bar in a panel ("Mode"): a finger is the panel's key, the reach of one hand the look's.
+inline climate_tile::Metrics bar_metrics(const PanelMetrics &m,bool large){
+  climate_tile::Metrics cm;cm.large=large;cm.touch=m.key_h;cm.gap=m.gap;cm.max_width=ui::control_max_width();
+  return cm;
+}
+inline void draw_mode_bar(Widgets &w,const Tile &t,lv_obj_t *parent,lv_obj_t *&track,lv_obj_t **segments,climate_tile::Rect bar,
+                          int room,const climate_tile::Metrics &cm,bool large);
 inline PanelMetrics panel_metrics(bool large) {
   return large ? PanelMetrics{ui::px(60), ui::px(46), ui::px(14), ui::px(8), ui::px(196), ui::px(52), ui::px(140), ui::px(44), ui::px(76), ui::px(40), ui::px(22), ui::px(8), ui::px(4)} : PanelMetrics{ui::px(40), ui::px(34), ui::px(9), ui::px(4), ui::px(128), ui::px(36), ui::px(90), ui::px(30), ui::px(48), ui::px(26), ui::px(14), ui::px(6), ui::px(6)};
 }
@@ -4737,7 +4889,7 @@ inline void end_panel(Widgets &w) {
   if(!w.panel)return;
   hide_panel(w);
   if(!w.panel_mode.empty()){
-    lv_obj_clean(w.panel);w.keys.fill(nullptr);w.key_icons.fill(nullptr);w.key_checked.fill(-1);
+    lv_obj_clean(w.panel);w.keys.fill(nullptr);w.key_icons.fill(nullptr);w.key_checked.fill(-1);w.segments.fill(nullptr);
     w.pill=w.pill_value=w.knob=w.control_slider=nullptr;w.knob_on=-1;w.panel_mode.clear();
   }
 }
@@ -4763,18 +4915,64 @@ inline lv_obj_t *panel_icon(Widgets &w,unsigned n,const lv_font_t *font) {
 // The - and + keys of a stepper as round keys inside its grey pill (firmware 0.3.3), with the number between them
 // in the largest face that fits: the value is what the stepper is for, the keys only change it. The keys keep a
 // finger's reach through their click area, which covers the pill's inset.
-inline void stepper_keys(Widgets &w,int width,int height,const lv_font_t *text_font){
+// The chip of a thermostat's range between its - and + (firmware 0.19.0), in the room (x, y, cw, ch) the number would
+// take: the icon of the end they move, heat or cool, in that mode's colour, and its temperature in the largest of
+// `faces` whose line is no taller than `face_h` (the pill's, as the single number's) and fits beside the icon. No digit
+// to spare, as the single number keeps: every tap lays the tile out again. Without a range the chip hides.
+inline void range_chip(Widgets &w,const Tile &t,int x,int y,int cw,int ch,int face_h,std::initializer_list<const lv_font_t *> faces){
+  auto *chip=w.keys[2];
+  if(!chip||t.domain()!="climate")return;
+  const bool range=tile_controls::climate_range(t);
+  set_hidden(chip,!range);
+  if(w.pill_value)set_hidden(w.pill_value,range);
+  w.key_commands[2]=range?tile_controls::RANGE_SWITCH:tile_controls::NONE;
+  if(!range)return;
+  const char *end=t.range_end==tile_controls::RANGE_HIGH?"cool":"heat";
+  auto *icon=w.key_icons[2],*value=lv_obj_get_child(chip,1);
+  label(icon,tile_controls::climate_mode_icon(end));
+  set_color(icon,LV_STYLE_TEXT_COLOR,lv_color_hex(tile_controls::mode_color(end)));
+  if(mini_icon_font&&(int)lv_font_get_line_height(lv_obj_get_style_text_font(icon,LV_PART_MAIN))>ch-ui::px(6))set_font(icon,mini_icon_font);
+  const int icon_w=lv_font_get_line_height(lv_obj_get_style_text_font(icon,LV_PART_MAIN)),pad=ui::px(6);
+  const std::string text=tile_controls::format_value(tile_controls::range_end(t,t.range_end),tile_controls::edit_step(t),"°");
+  // Measured by the widest temperature this thermostat can show, as a single temperature is by its number: the face
+  // stays the same from tap to tap, and the icon never makes the number smaller.
+  const std::string widest=tile_controls::widest_setpoint(t);
+  const lv_font_t *face=nullptr;
+  for(const auto *candidate:faces){
+    if(!candidate||!face_covers(candidate,widest))continue;
+    face=candidate;
+    if((int)lv_font_get_line_height(candidate)<=face_h&&text_width(widest,candidate)+pad<=cw)break;
+  }
+  if(!face)face=lv_obj_get_style_text_font(value,LV_PART_MAIN);
+  set_font(value,face);label(value,text);
+  lv_obj_set_pos(chip,x,y);lv_obj_set_size(chip,std::max(1,cw),std::max(1,ch));
+  // The number may stand taller than the chip, as the single number stands in its pill: it is not cut at the chip's edge.
+  lv_obj_add_flag(chip,LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+  // No room for the icon beside the widest number: the number alone, in the colour of its end, on every tap alike.
+  const int tw=text_width(text,face);
+  const bool with_icon=icon_w+pad/2+text_width(widest,face)+pad<=cw;
+  set_hidden(icon,!with_icon);
+  set_color(value,LV_STYLE_TEXT_COLOR,with_icon?theme::color(theme::INK):lv_color_hex(tile_controls::mode_color(end)));
+  const int left=std::max(0,(cw-(with_icon?icon_w+pad/2:0)-tw)/2);
+  lv_obj_set_align(icon,LV_ALIGN_TOP_LEFT);lv_obj_set_pos(icon,left,(ch-icon_w)/2);
+  lv_obj_set_align(value,LV_ALIGN_TOP_LEFT);lv_obj_set_pos(value,left+(with_icon?icon_w+pad/2:0),(ch-(int)lv_font_get_line_height(face))/2);
+}
+// The - and + keys of a stepper as round keys inside its grey pill, the number or a range's chip between them.
+inline void stepper_keys(Widgets &w,int width,int height,const lv_font_t *text_font,const Tile *tile=nullptr){
   const int in=std::max(2,ui::px(ui::large()?4:3)),d=std::max(1,height-2*in);
   for(int n=0;n<2;++n){
     if(!w.keys[n])continue;
     lv_obj_set_size(w.keys[n],d,d);lv_obj_set_pos(w.keys[n],n?width-in-d:in,in);
     lv_obj_set_style_bg_opa(w.keys[n],LV_OPA_COVER,0);lv_obj_set_ext_click_area(w.keys[n],in);center_icon(w.key_icons[n]);
   }
+  if(tile)range_chip(w,*tile,in+d+in,in,width-2*(in+d+in),d,height,{watch_value_font,text_font,small_font});
   // Measured with a digit to spare, so the number a tap on + makes still fits the face chosen here.
   const std::string widest=std::string(lv_label_get_text(w.pill_value))+"8";
   const int room=width-2*(d+in)-ui::px(4);
+  // A thermostat's range is two numbers: the small face before it gives up (never dots: LVGL writes them into the text
+  // measured here, lvgl-dots-in-label-text).
   const lv_font_t *face=text_font;
-  for(const auto *candidate:{watch_value_font,text_font})
+  for(const auto *candidate:{watch_value_font,text_font,small_font})
     if(candidate&&face_covers(candidate,widest)&&(int)lv_font_get_line_height(candidate)<=height&&text_width(widest,candidate)<=room){face=candidate;break;}
   set_font(w.pill_value,face);
   const int lh=lv_font_get_line_height(face);
@@ -4825,6 +5023,8 @@ inline int layout_panel(Widgets &w,const Tile &t,bool large,int content_w,int co
     end_panel(w);w.panel_mode=mode;w.panel_full=w.full;w.panel_tall=taller;w.panel_dirty=true;
     if(tile_controls::is_key_row(mode)){
       for(unsigned n=0;n<3;++n){panel_key(w,n,w.panel,m,key_w,m.key_h,false);panel_icon(w,n,icon_font);}
+    }else if(mode=="mode"){
+      // Drawn per render (draw_mode_bar): the track and a segment per mode, as many as its width holds.
     }else if(mode=="setpoint"||mode=="stepper"){
       w.pill=panel_obj(w.panel,false);lv_obj_set_size(w.pill,fill,m.key_h+2);
       lv_obj_set_style_radius(w.pill,LV_RADIUS_CIRCLE,0);lv_obj_set_style_bg_opa(w.pill,LV_OPA_COVER,0);
@@ -4836,6 +5036,15 @@ inline int layout_panel(Widgets &w,const Tile &t,bool large,int content_w,int co
       w.pill_value=lv_label_create(w.pill);lv_obj_remove_flag(w.pill_value,LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_style_text_font(w.pill_value,text_font,0);lv_obj_set_style_text_align(w.pill_value,LV_TEXT_ALIGN_CENTER,0);
       lv_label_set_long_mode(w.pill_value,LV_LABEL_LONG_CLIP);
+      // A thermostat's range (firmware 0.19.0): in the number's place the end the -/+ move, its heat or cool icon before
+      // the temperature, on the pill as a single temperature stands there; a tap switches it and lights it up while
+      // the finger is down. The third key of the panel, on the panel above the pill, so the pill's own children stay.
+      if(t.domain()=="climate"){
+        panel_key(w,2,w.panel,m,m.pill_key,m.key_h,true);panel_icon(w,2,icon_font);
+        auto *value=lv_label_create(w.keys[2]);lv_obj_remove_flag(value,LV_OBJ_FLAG_CLICKABLE);
+        set_color(w.keys[2],LV_STYLE_BG_COLOR,theme::color(theme::STEPPER_KEY),LV_STATE_PRESSED);
+        lv_obj_add_flag(w.keys[2],LV_OBJ_FLAG_HIDDEN);
+      }
       lv_obj_set_size(w.pill_value,std::max(1,fill-2*m.pill_key),lv_font_get_line_height(text_font));
       lv_obj_set_pos(w.pill_value,m.pill_key,(m.key_h+2-lv_font_get_line_height(text_font))/2);
       w.key_commands[0]=tile_controls::STEP_DOWN;w.key_commands[1]=tile_controls::STEP_UP;
@@ -4885,12 +5094,25 @@ inline int layout_panel(Widgets &w,const Tile &t,bool large,int content_w,int co
       set_checked(n,keys[n].checked);set_disabled(n,keys[n].disabled);
     }
     panel_w=count?count*key_w+(count-1)*m.gap:0;
+  }else if(mode=="mode"){
+    // A thermostat's modes (firmware 0.19.0): the bar under its -/+ in "Temperature and mode", with the same rule for
+    // how many fit (climate_tile::bar_room) and the same modes (climate_bar_keys). Over the card's reach on a card of
+    // more than one row or the whole page, a finger per segment beside the name on a card of one row.
+    const auto cm=bar_metrics(m,large);
+    const bool stretches=w.full||taller;
+    const int reach=std::min(keys_room,ui::control_max_width());
+    std::array<tile_controls::Key,climate_tile::SEGMENTS> modes;
+    const int room=climate_tile::bar_room(cm,reach,(int)tile_controls::climate_bar_keys(t,modes));
+    panel_w=climate_tile::bar_width(cm,reach,room,stretches);panel_h=cm.touch;
+    if(panel_w)draw_mode_bar(w,t,w.panel,w.pill,w.segments.data(),{0,0,panel_w,panel_h},room,cm,large);
   }else if(mode=="setpoint"||mode=="stepper"){
     float shown=std::isfinite(t.edit_value)?t.edit_value:tile_controls::edit_target(t);
     std::string suffix=d=="climate"?"°":screen_text::unit_suffix(t.unit);
-    label(w.pill_value,tile_controls::format_value(shown,tile_controls::edit_step(t),suffix.c_str()));
+    // A range: the chip says the chosen end (range_chip); the number keeps it too, which the tall form measures by.
+    const float step=tile_controls::edit_step(t);
+    label(w.pill_value,tile_controls::format_value(tile_controls::climate_range(t)?tile_controls::range_end(t,t.range_end):shown,step,suffix.c_str()));
     panel_w=fill;panel_h=m.key_h+2;
-    if(!taller)stepper_keys(w,fill,panel_h,text_font);
+    if(!taller)stepper_keys(w,fill,panel_h,text_font,&t);
   }else if(tile_controls::is_slider(mode)){
     bool has_slider=mode!="volume" || (t.supported & tile_controls::feature::MEDIA_VOLUME_SET);
     if(has_slider){
@@ -4939,12 +5161,16 @@ inline void style_panel(Widgets &w,const Tile &t,lv_color_t accent,lv_color_t te
   for(unsigned n=0;n<3;++n){
     auto *key=w.keys[n];if(!key)continue;
     bool in_pill=w.pill && lv_obj_get_parent(key)==w.pill;
+    if(n==2&&w.pill&&w.panel_mode=="setpoint"){   // a range's chip (range_chip): no fill of its own, grey while pressed
+      set_color(key,LV_STYLE_BG_COLOR,theme::color(theme::CARD));set_color(key,LV_STYLE_BG_COLOR,theme::color(theme::STEPPER_KEY_PRESSED),LV_STATE_PRESSED);
+      continue;
+    }
     set_color(key,LV_STYLE_BG_COLOR,in_pill?theme::color(theme::STEPPER_KEY):key_bg);
     set_color(key,LV_STYLE_BG_COLOR,in_pill?theme::color(theme::STEPPER_KEY_PRESSED):key_pressed,LV_STATE_PRESSED);
     set_color(key,LV_STYLE_BG_COLOR,w.key_args[n]=="off" && w.panel_mode=="mode"?theme::color(theme::OFF):accent,LV_STATE_CHECKED);
     if(w.key_icons[n])set_color(w.key_icons[n],LV_STYLE_TEXT_COLOR,w.key_checked[n]==1?theme::color(theme::ON_ACCENT):text);
   }
-  if(w.pill){set_color(w.pill,LV_STYLE_BG_COLOR,theme::color(theme::TRACK));set_color(w.pill_value,LV_STYLE_TEXT_COLOR,text);}
+  if(w.pill){set_color(w.pill,LV_STYLE_BG_COLOR,theme::color(theme::TRACK));if(w.pill_value)set_color(w.pill_value,LV_STYLE_TEXT_COLOR,text);}
   if(w.control_slider){
     bool on=fresh() && t.slider_active();
     lv_color_t fill=on?accent:theme::color(theme::OFF);
@@ -4971,6 +5197,16 @@ inline void control_event(lv_event_t *e) {
   else if(step){ if(!screen_input::touch_guard.accept_repeat(now,400+slot*16+n)){ESP_LOGI("touch","tap on control %u ignored: %s",(unsigned)slot,screen_input::touch_guard.reason().c_str());return;} }
   else if(!allowed(now,400+slot*16+n,"control "+std::to_string(slot)))return;
   if(!t.available())return;
+  // A range (firmware 0.19.0): the chip switches the end the -/+ move, heat or cool; the -/+ move that end.
+  if(command==tile_controls::RANGE_SWITCH&&tile_controls::climate_range(t)){
+    t.range_end=t.range_end==tile_controls::RANGE_HIGH?tile_controls::RANGE_LOW:tile_controls::RANGE_HIGH;
+    refresh_tile(w.index);return;
+  }
+  if(step&&tile_controls::climate_range(t)){
+    range_step(t,command==tile_controls::STEP_UP?1:-1);
+    if(detail_root&&!lv_obj_has_flag(detail_root,LV_OBJ_FLAG_HIDDEN)&&detail_index==w.index)climate_paint_ends(t);
+    refresh_tile(w.index);return;
+  }
   if(step){
     // Local at once, tap after tap; tick() sends the last value after a short pause.
     float current=std::isfinite(t.edit_value)?t.edit_value:tile_controls::edit_target(t);
@@ -5148,35 +5384,42 @@ inline void cover_tile_key_event(lv_event_t *e){
   const auto call=tile_controls::key_action(t,keys[part%3].command);
   if(!call.service.empty())action(call.service,t.entity,call.key,call.value);
 }
-// A climate's mode keys under its setpoint (firmware 0.3.1+): the same guard and the same press as a key-row panel.
-// The row holds as many keys as the card's width fits (parts 4..9); the key is found by its place in that row.
-constexpr int CLIMATE_MODE_PARTS=6;
+// A thermostat's mode bar (firmware 0.3.3): under its -/+ on a card of "Temperature and mode" (the tall card's parts
+// 2 and 4..9) and on its own as the panel of "Mode" (the panel's pill and segments, firmware 0.19.0). One bar, one
+// drawing, one press: a segment says its place in the bar, and the bar's modes are climate_bar_keys for the room it
+// holds, so the press finds the mode the segment shows.
+constexpr int CLIMATE_MODE_PARTS=climate_tile::SEGMENTS;
+// The segments of the bar a card shows: its panel's for "Mode", its tall card's otherwise.
+inline lv_obj_t *const *mode_bar_segments(const Widgets &w){
+  if(w.panel_mode=="mode")return w.segments.data();
+  return w.extra_mode=="tall"?&w.parts[4]:nullptr;
+}
 inline void climate_mode_key_event(lv_event_t *e){
-  const unsigned slot=(uintptr_t)lv_event_get_user_data(e);
+  const unsigned code=(uintptr_t)lv_event_get_user_data(e),slot=code/16,n=code%16;
   if(slot>=widgets.size())return;
-  auto &w=widgets[slot];if(w.index>=model.count||w.extra_mode!="tall")return;
-  auto *target=(lv_obj_t*)lv_event_get_target(e);int n=-1,room=0;
-  for(int i=0;i<CLIMATE_MODE_PARTS;++i){auto *p=w.parts[4+i];if(p&&!lv_obj_has_flag(p,LV_OBJ_FLAG_HIDDEN)){if(p==target)n=room;++room;}}
+  auto &w=widgets[slot];if(w.index>=model.count)return;
+  auto *const *segments=mode_bar_segments(w);if(!segments)return;
+  unsigned room=0;
+  for(int i=0;i<CLIMATE_MODE_PARTS;++i)if(segments[i]&&!lv_obj_has_flag(segments[i],LV_OBJ_FLAG_HIDDEN))++room;
   auto &t=model.tiles[w.index];const uint32_t now=esphome::millis();
-  if(n<0||!enabled||!fresh()||!t.available()||t.waiting(now)||!tile_controls::climate_modes_selected(t))return;
+  if(n>=room||!enabled||!fresh()||!t.available()||t.waiting(now)||t.domain()!="climate")return;
   std::array<tile_controls::Key,CLIMATE_MODE_PARTS> keys;
-  if(n>=(int)tile_controls::climate_bar_keys(t,keys,room))return;
+  if(n>=tile_controls::climate_bar_keys(t,keys,room))return;
   if(!allowed(now,700+slot*8+n,"control "+std::to_string(slot)))return;
   if(keys[n].command==tile_controls::OPEN_CARD){active_index=w.index;show_detail(w.index);return;}
   const auto a=tile_controls::press_key(t,keys[n].command,keys[n].arg);
   if(a.valid())action(a.service,t.entity,a.key,a.value);
 }
-// One segment of a thermostat tile's mode bar: the mode's icon, its word where the bar has room, and the mode it
-// is in filled in Home Assistant's colour for it with a white icon on it.
-inline void mode_segment(Widgets &w,unsigned i,climate_tile::Rect r,const tile_controls::Key &k,bool words,const lv_font_t *glyphs,
-                         const lv_font_t *text,bool ready,int slot){
-  auto *&p=w.parts[i];
+// One segment of a thermostat's mode bar: the mode's icon, its word where the bar has room, and the mode it is in
+// filled in Home Assistant's colour for it with a white icon on it. `code`: its card's slot * 16 and its place.
+inline void mode_segment(lv_obj_t *&p,lv_obj_t *parent,unsigned code,climate_tile::Rect r,const tile_controls::Key &k,bool words,
+                         const lv_font_t *glyphs,const lv_font_t *text,bool ready){
   if(!p){
-    p=lv_obj_create(w.extra);lv_obj_remove_style_all(p);lv_obj_set_style_radius(p,LV_RADIUS_CIRCLE,0);
+    p=lv_obj_create(parent);lv_obj_remove_style_all(p);lv_obj_set_style_radius(p,LV_RADIUS_CIRCLE,0);
     lv_obj_set_style_bg_opa(p,LV_OPA_COVER,LV_STATE_PRESSED);lv_obj_set_style_opa(p,LV_OPA_40,LV_STATE_DISABLED);
     lv_obj_add_flag(p,LV_OBJ_FLAG_CLICKABLE);lv_obj_remove_flag(p,LV_OBJ_FLAG_SCROLLABLE);
     for(int c=0;c<2;++c){auto *label=lv_label_create(p);lv_obj_remove_flag(label,LV_OBJ_FLAG_CLICKABLE);}
-    lv_obj_add_event_cb(p,climate_mode_key_event,LV_EVENT_SHORT_CLICKED,(void*)(uintptr_t)slot);
+    lv_obj_add_event_cb(p,climate_mode_key_event,LV_EVENT_SHORT_CLICKED,(void*)(uintptr_t)code);
   }
   lv_obj_set_pos(p,r.x,r.y);lv_obj_set_size(p,r.w,r.h);lv_obj_remove_flag(p,LV_OBJ_FLAG_HIDDEN);
   const bool mode=k.command==tile_controls::HVAC_MODE;
@@ -5197,6 +5440,29 @@ inline void mode_segment(Widgets &w,unsigned i,climate_tile::Rect r,const tile_c
     const int th=lv_font_get_line_height(text);lv_obj_set_pos(word,x0+gh+space,(r.h-th)/2);lv_obj_set_size(word,tw,th);
   }
   if(ready)lv_obj_remove_state(p,LV_STATE_DISABLED);else lv_obj_add_state(p,LV_STATE_DISABLED);
+}
+// The whole bar in `bar` of `parent`: its track, and a segment per mode climate_bar_keys picks for `room`, with words
+// beside the icons where every segment has room for its own ("Heat", "Cool", "Auto"). Segments past them hide.
+inline void draw_mode_bar(Widgets &w,const Tile &t,lv_obj_t *parent,lv_obj_t *&track,lv_obj_t **segments,climate_tile::Rect bar,
+                          int room,const climate_tile::Metrics &cm,bool large){
+  if(!track){track=lv_obj_create(parent);lv_obj_remove_style_all(track);lv_obj_set_style_bg_opa(track,LV_OPA_COVER,0);
+    lv_obj_set_style_radius(track,LV_RADIUS_CIRCLE,0);lv_obj_remove_flag(track,LV_OBJ_FLAG_CLICKABLE);lv_obj_remove_flag(track,LV_OBJ_FLAG_SCROLLABLE);}
+  lv_obj_set_pos(track,bar.x,bar.y);lv_obj_set_size(track,bar.w,bar.h);lv_obj_remove_flag(track,LV_OBJ_FLAG_HIDDEN);
+  set_color(track,LV_STYLE_BG_COLOR,theme::color(theme::TRACK));
+  std::array<tile_controls::Key,CLIMATE_MODE_PARTS> modes;
+  const unsigned count=tile_controls::climate_bar_keys(t,modes,std::max(0,room));
+  const auto seg=climate_tile::segments(cm,bar,(int)count);
+  const lv_font_t *glyphs=mini_icon_font?mini_icon_font:w.icon_font;
+  bool words=count>0;
+  for(unsigned n=0;n<count&&words;++n)
+    words=modes[n].command!=tile_controls::HVAC_MODE||seg[n].w>=lv_font_get_line_height(glyphs)+ui::px(large?26:14)+
+          text_width(tile_controls::climate_mode_text(modes[n].arg),w.value_font);
+  const unsigned slot=&w-widgets.data();
+  const bool ready=fresh()&&t.available()&&!t.waiting(esphome::millis());
+  for(unsigned n=0;n<(unsigned)CLIMATE_MODE_PARTS;++n){
+    if(n<count)mode_segment(segments[n],parent,slot*16+n,seg[n],modes[n],words,glyphs,w.value_font,ready);
+    else if(segments[n])lv_obj_add_flag(segments[n],LV_OBJ_FLAG_HIDDEN);
+  }
 }
 inline cover_tile::Layout cover_tile_layout(const Tile &t,tall_tile::Rect body,int touch,int gap,int caption){
   // Capability, not freshness, decides the layout: while HA reconnects the same keys stay, greyed out (ready below).
@@ -5309,6 +5575,26 @@ inline bool render_tall(Widgets &w,const Tile &t,bool selected,int width,int hei
       return true;
     }
   }
+  // An on/off or run card two rows tall is one big key (firmware 0.17.0+, big_key): a large circle, the name in the
+  // page's headline size and the state under it, and no switch or run key: the whole card is what you tap.
+  if(t.row_span()>=2&&!w.full&&big_key(t)){
+    hide_panel(w);hide_extra(w);
+    // The page's headline size for the name when the whole name fits the card, else the tile's own title size.
+    const lv_font_t *name_font=room_label?lv_obj_get_style_text_font(room_label,LV_PART_MAIN):w.title_font;
+    if(text_width(lv_label_get_text(w.title),name_font)>width)name_font=w.title_font;
+    const int name_h=lv_font_get_line_height(name_font),side=std::min(width,height)*44/100;
+    const auto a=tall_tile::action(width,height,side,lv_font_get_line_height(w.icon_font),name_h,l.state?m.state_h:0,gap);
+    if(a.fits){
+      const lv_font_t *icon_font=big_icon_font&&font_has(big_icon_font,icon_for(t))&&a.icon.w>=ui::px(96)?big_icon_font:w.icon_font;
+      lv_obj_set_size(w.circle,a.icon.w,a.icon.h);lv_obj_set_pos(w.circle,a.icon.x,a.icon.y);
+      set_font(w.icon,icon_font);center_icon(w.icon);
+      set_font(w.title,name_font);set_text_align(w.title,LV_TEXT_ALIGN_CENTER);lv_obj_set_pos(w.title,a.title.x,a.title.y);lv_obj_set_size(w.title,a.title.w,a.title.h);
+      set_text_align(w.value,LV_TEXT_ALIGN_CENTER);lv_obj_set_pos(w.value,a.state.x,a.state.y);lv_obj_set_size(w.value,a.state.w,std::max(1,a.state.h));
+      set_hidden(w.value,a.state.empty());
+      live_place(w,t,a.icon.w,a.icon.x,a.icon.y);
+    }
+    return true;
+  }
   int circle=std::min({w.base_circle,l.header.h,width/3});
   const lv_font_t *heading_font=heading_icon(w,circle,l.header.h,width);
   const int tx=circle+gap,tw=std::max(1,width-tx),lines=m.name_h+(l.state?m.state_h:0);
@@ -5355,7 +5641,8 @@ inline bool render_tall(Widgets &w,const Tile &t,bool selected,int width,int hei
     std::array<tile_controls::Key,CLIMATE_MODE_PARTS> modes;
     const bool wanted=tile_controls::climate_modes_selected(t);
     const int want=wanted?(int)tile_controls::climate_bar_keys(t,modes):0;
-    const std::string target=lv_label_get_text(w.pill_value);
+    // A range's chip carries an icon beside the number (two digits' room for it) and is measured by its widest temperature.
+    const std::string target=tile_controls::climate_range(t)?tile_controls::widest_setpoint(t)+"88":std::string(lv_label_get_text(w.pill_value));
     climate_tile::Metrics cm;cm.large=large;cm.touch=touch;cm.gap=gap;cm.max_width=ui::control_max_width();
     const lv_font_t *faces[climate_tile::FACES]={setpoint_font,watch_value_font,control_font?control_font:w.title_font};
     for(int f=0;f<climate_tile::FACES;++f){
@@ -5382,35 +5669,18 @@ inline bool render_tall(Widgets &w,const Tile &t,bool selected,int width,int hei
       const lv_font_t *number=faces[cl.face];
       set_font(w.pill_value,number);
       lv_obj_set_pos(w.pill_value,cl.number.x-area.x,cl.number.y-area.y);lv_obj_set_size(w.pill_value,cl.number.w,cl.number.h);
+      range_chip(w,t,cl.number.x-area.x,cl.number.y-area.y,cl.number.w,cl.number.h,cl.number.h,{number,watch_value_font,w.value_font});
       // The "now" line lives in the pill beside the number (its fourth child), so the panel is one block.
       if(lv_obj_get_child_count(w.pill)<4){auto *line=lv_label_create(w.pill);lv_obj_remove_flag(line,LV_OBJ_FLAG_CLICKABLE);
         lv_label_set_long_mode(line,LV_LABEL_LONG_DOT);lv_obj_set_style_text_align(line,LV_TEXT_ALIGN_CENTER,0);}
       auto *now_line=lv_obj_get_child(w.pill,3);
       set_hidden(now_line,!(cl.caption&&std::isfinite(t.current)));
       if(cl.caption&&std::isfinite(t.current)){
-        set_font(now_line,w.value_font);label(now_line,screen_text::fill(txt::climate_now,"value",screen_text::decimal(t.current,1)+"°"));
+        set_font(now_line,w.value_font);label(now_line,screen_text::fill(txt::climate_now,"value",tile_controls::temperature_text(t.current)));
         set_color(now_line,LV_STYLE_TEXT_COLOR,theme::color(theme::MUTED));
         lv_obj_set_pos(now_line,cl.caption_box.x-area.x,cl.caption_box.y-area.y);lv_obj_set_size(now_line,cl.caption_box.w,cl.caption_box.h);
       }
-      if(!cl.bar.empty()){
-        const unsigned count=tile_controls::climate_bar_keys(t,modes,cl.room);
-        auto *&track=w.parts[2];
-        if(!track){track=lv_obj_create(w.extra);lv_obj_remove_style_all(track);lv_obj_set_style_bg_opa(track,LV_OPA_COVER,0);
-          lv_obj_set_style_radius(track,LV_RADIUS_CIRCLE,0);lv_obj_remove_flag(track,LV_OBJ_FLAG_CLICKABLE);lv_obj_remove_flag(track,LV_OBJ_FLAG_SCROLLABLE);}
-        lv_obj_set_pos(track,cl.bar.x,cl.bar.y);lv_obj_set_size(track,cl.bar.w,cl.bar.h);lv_obj_remove_flag(track,LV_OBJ_FLAG_HIDDEN);
-        set_color(track,LV_STYLE_BG_COLOR,theme::color(theme::TRACK));
-        const auto seg=climate_tile::segments(cm,cl.bar,(int)count);
-        const lv_font_t *glyphs=mini_icon_font?mini_icon_font:w.icon_font;
-        // Words beside the icons where every segment has room for its own: "Heat", "Cool", "Auto".
-        bool words=count>0;
-        for(unsigned n=0;n<count&&words;++n)
-          words=modes[n].command!=tile_controls::HVAC_MODE||seg[n].w>=lv_font_get_line_height(glyphs)+ui::px(large?26:14)+
-                text_width(tile_controls::climate_mode_text(modes[n].arg),w.value_font);
-        const int slot=&w-widgets.data();
-        const bool ready=fresh()&&t.available()&&!t.waiting(esphome::millis());
-        for(unsigned n=0;n<count;++n)
-          mode_segment(w,4+n,seg[n],modes[n],words,glyphs,w.value_font,ready,slot);
-      }
+      if(!cl.bar.empty())draw_mode_bar(w,t,w.extra,w.parts[2],&w.parts[4],cl.bar,cl.room,cm,large);
       return true;
     }
     w.hand_r=0;hide_panel(w);
@@ -5446,7 +5716,7 @@ inline bool render_tall(Widgets &w,const Tile &t,bool selected,int width,int hei
     if(secondary)text(1,artist,w.value_font,{0,y+fh+gap/2,width,m.state_h},LV_TEXT_ALIGN_LEFT);
   }else if(d=="climate"&&std::isfinite(t.current)){
     const auto *font=watch_value_font&&lv_font_get_line_height(watch_value_font)<=body.h?watch_value_font:w.value_font;
-    text(0,screen_text::decimal(t.current,1)+"°",font,{0,body.y+std::max(0,(body.h-static_cast<int>(lv_font_get_line_height(font)))/2),width,body.h},LV_TEXT_ALIGN_CENTER);
+    text(0,tile_controls::temperature_text(t.current),font,{0,body.y+std::max(0,(body.h-static_cast<int>(lv_font_get_line_height(font)))/2),width,body.h},LV_TEXT_ALIGN_CENTER);
   }else if(!t.builtin() && fresh() && t.available()){
     const std::string value=d=="light"?light_value_text(t):card_status(t,true);
     const lv_font_t *font=w.value_font;
@@ -5568,7 +5838,7 @@ inline void render_full(Widgets &w,const Tile &t,bool custom,bool clock,bool sun
   // The large value font carries digits, the degree sign and the percent sign; the clock font only digits and a colon.
   std::string middle;const lv_font_t *mid_font=watch_value_font?watch_value_font:w.value_font;
   auto d=t.domain();
-  if(d=="climate" && std::isfinite(t.current))middle=screen_text::decimal(t.current,1)+"°";
+  if(d=="climate" && std::isfinite(t.current))middle=tile_controls::temperature_text(t.current);
   else if(d=="cover" && std::isfinite(t.position)){middle=screen_text::percent(static_cast<int>(std::lround(t.position)));}
   else if(d=="media_player" && !t.extra().media_title.empty()){middle=t.extra().media_title;mid_font=room_label?lv_obj_get_style_text_font(room_label,LV_PART_MAIN):w.title_font;}
   int mid_font_h=lv_font_get_line_height(mid_font);
@@ -5625,9 +5895,13 @@ inline void render_slot(size_t slot) {
   else if (d == "light" && t.state == "on" && tile_controls::effect_running(t.extra().effect)) value = t.extra().effect;
   else if (d == "light" && t.state == "on" && std::isfinite(t.brightness)) value = screen_text::percent(static_cast<int>(std::lround(std::clamp(t.brightness, 0.0f, 255.0f) * 100 / 255)));
   // An airco that is off says so, with the room's temperature when it knows it, as Home Assistant's tile does
-  // (firmware 0.2.71+); while it runs, the tile shows the temperature it is set to.
-  else if (d == "climate" && t.state == "off") { value = tile_controls::climate_mode_text(t.state); if (std::isfinite(t.current)) value += " · " + screen_text::decimal(t.current, 1) + "°"; }
-  else if (d == "climate" && std::isfinite(t.target)) value = screen_text::decimal(t.target, 1) + "°";
+  // (firmware 0.2.71+); while it runs, the tile shows the temperature it is set to, written as Home Assistant writes
+  // it: 68°, 21.5° (firmware 0.19.0; before, always one decimal).
+  else if (d == "climate" && t.state == "off") { value = tile_controls::climate_mode_text(t.state); if (std::isfinite(t.current)) value += " · " + tile_controls::temperature_text(t.current); }
+  else if (d == "climate" && std::isfinite(t.target)) value = tile_controls::temperature_text(t.target);
+  // Without one temperature to reach (a range, dry, fan only) the line is Home Assistant's own tile line for a
+  // thermostat, its state and the room's temperature (state-display: climate ["state", "current_temperature"]).
+  else if (d == "climate") { value = tile_controls::climate_mode_text(tile_controls::lower_case(t.state)); if (std::isfinite(t.current)) value += " · " + tile_controls::temperature_text(t.current); }
   else if (d == "person") value = t.state=="home"?tr(txt::ha_person_home):t.state=="not_home"?tr(txt::ha_person_not_home):t.state;
   else if (d == "sun") value = !t.extra().sunrise.empty() && !t.extra().sunset.empty() ? screen_text::clock_text(t.extra().sunrise,screen_settings::current.clock_24h!=0,true)+" - "+screen_text::clock_text(t.extra().sunset,screen_settings::current.clock_24h!=0,true) : tr(t.state=="above_horizon"?txt::ha_sun_above_horizon:txt::ha_sun_below_horizon);
   else if (d == "timer") value = timer_text(t);
@@ -5920,9 +6194,10 @@ inline void render_slot(size_t slot) {
   int palette_state=(available?2:0)|(on?1:0)|(slider_on?4:0)|((card_art(t)&&w.picture&&!lv_obj_has_flag(w.picture,LV_OBJ_FLAG_HIDDEN))?8:0)|
                     (lock_tile&&lock_asking(t,false)?16:0)|(lock_tile?(int)(lock_panel::color(t.state)&0xFF)<<8:0);
   // An alarm panel's circle beats while it counts down or goes off, and springs once when it arms or disarms.
-  if (d == "alarm_control_panel" || d == "lock" || alarm_tile_looks[slot] || alarm_tile_marks[slot]) alarm_tile_look(slot, &t);
-  if (w.cached_active == palette_state && !w.panel_dirty) { style_tall(w,t);lap(swipe_profile::GEOMETRY); return; }
-  w.cached_active = palette_state;w.panel_dirty=false;
+  if (d == "alarm_control_panel" || d == "lock" || w.alarm_look || w.alarm_mark) alarm_tile_look(slot, &t);
+  const uint32_t paint=t.background|(t.transparent?1u<<24:0);
+  if (w.cached_active == palette_state && w.cached_paint == paint && !w.panel_dirty) { style_tall(w,t);lap(swipe_profile::GEOMETRY); return; }
+  w.cached_active = palette_state;w.cached_paint=paint;w.panel_dirty=false;
   // Home Assistant's colour for the state (tile_controls::accent), and a lamp's own colour while it is on.
   uint32_t accent=lock_tile?lock_accent(t):tile_controls::accent(t);
   // A lamp's own colour goes through Home Assistant's contrast rule before it reaches the glass
@@ -6162,10 +6437,22 @@ inline void prepare_status() {
                            "\n" + tr(next >= 0 ? prepare_joke(next) : txt::preparing_default);
   boot_status(lv_obj_get_parent(room_label), text.c_str(), true, true);
 }
+// A network the screen cannot reach, said on the loading screen over everything (firmware 0.19.0, wifi_status.h): what is
+// wrong, then what fixes it, the hotspot to join with its password or, without one, the way over USB.
+inline std::string wifi_problem_text(const wifi_status::Problem &wifi) {
+  const std::string fix = wifi.hotspot
+      ? fill(fill(std::string(tr(txt::status_wifi_hotspot)), "name", wifi.ssid), "password", wifi.password)
+      : std::string(tr(txt::status_wifi_usb));
+  return std::string(tr(txt::status_wifi_problem)) + "\n\n" + fix;
+}
 // Before the first layout the screen is starting: HA connects, then ESP Screens sends the tiles.
 inline void render(lv_obj_t *room) {
   if (!enabled) return;
   room_label=room; swipe_profile::Lap lap;
+  if (const auto wifi = wifi_status::problem(); wifi.shown) {
+    boot_status(lv_obj_get_parent(room), wifi_problem_text(wifi).c_str(), false, true);
+    return;
+  }
   if (protocol_problem != ProtocolProblem::none) {
     boot_status(lv_obj_get_parent(room), tr(protocol_problem == ProtocolProblem::old_addon
         ? txt::status_configuration_problem : txt::status_configuration_version), false);
@@ -6402,7 +6689,7 @@ inline bool check_tile_geometry() {
         if(w.extra_mode=="graph" && !custom)fits=fits && (w.wide && !w.full?part.x1>value.x2:part.y1>value.y2);
       }
     }
-    // The board's bedside digits fit its page in one of the three arrangements (FONT_BEDSIDE_SIZE, looks/shared/bedside.yaml).
+    // The board's bedside digits fit its page in one of the three arrangements (bedside_digits, looks/shared/digits.yaml).
     if(w.extra_mode=="bedside" && w.index<model.count){
       const auto l=bedside_layout(content_width(w),content_height(w),lv_obj_get_style_space_top(w.tile,LV_PART_MAIN),bedside_names(w.index));
       if(!l.fits){fits=false;ESP_LOGE("ui_test","Bedside digits fit FAIL slot=%u w=%d h=%d pad=%d digit_h=%d key=%d names=%d",(unsigned)w.index,
@@ -6424,6 +6711,16 @@ inline bool check_tile_geometry() {
       fits=fits && opa_ok;
     }
     ok=ok && fits;
+  }
+  // The tiles start below the top bar with room to spare (firmware 0.15.0+, GitHub #90): the tail of a g in the
+  // page's name, the lowest any title can reach in its font, stays at least a pixel clear of the tile area.
+  if(room_label && tile_grid && !lv_obj_has_flag(room_label,LV_OBJ_FLAG_HIDDEN)){
+    const lv_font_t *font=lv_obj_get_style_text_font(room_label,LV_PART_MAIN);lv_font_glyph_dsc_t tail;
+    if(font && lv_font_get_glyph_dsc(font,&tail,'g',0) && tail.box_h){
+      const int baseline=lv_obj_get_y(room_label)+(font->line_height-font->base_line);
+      const int lowest=baseline-tail.ofs_y,grid_top=lv_obj_get_y(tile_grid);
+      if(grid_top<=lowest){ok=false;ESP_LOGE("ui_test","Top bar clear FAIL tail=%d grid=%d",lowest,grid_top);}
+    }
   }
   return ok;
 }
@@ -6480,7 +6777,7 @@ inline void key_shape(Widgets &w,bool key){
   // The heartbeat of an alarm or a lock moves from the circle to the card or back (alarm_tile_look): the old one stands
   // still, the next render starts it on the new one.
   alarm_still(key?w.circle:w.tile);
-  if(const size_t slot=&w-widgets.data();slot<CELLS_MAX){alarm_tile_looks[slot]=LOOK_NONE;alarm_tile_marks[slot]=0;}
+  w.alarm_look=LOOK_NONE;w.alarm_mark=0;
   w.key=key;w.cached_active=-1;
 }
 // The keys of the bedside clock on this page where its layout puts them, once the grid has placed the clock's card.
@@ -6952,6 +7249,14 @@ inline uint32_t last_live_second=0;
 inline int last_clock_minute=-2;
 inline bool was_fresh=false;
 inline void tick() {
+  // The network lost or found again changes the whole glass: the Wi-Fi message over everything, or the pages back.
+  static bool wifi_shown = false;
+  if (const bool shown = wifi_status::problem().shown; shown != wifi_shown) {
+    wifi_shown = shown;
+    if (shown) ESP_LOGW("wifi_status", "No Wi-Fi: the glass says how to fix it");
+    else ESP_LOGI("wifi_status", "Wi-Fi back: the pages again");
+    if (room_label) { mark_all(); render(room_label); } else refresh_all();
+  }
   if(detail_root && !lv_obj_has_flag(detail_root,LV_OBJ_FLAG_HIDDEN) && detail_index<model.count){
     auto &t=model.tiles[detail_index];bool waiting=t.loading(esphome::millis());
     // The history the card waits for: drawn once it is here (a finger on the screen holds that back), asked for
@@ -7001,13 +7306,13 @@ inline void tick() {
   }
   // A -/+ edit goes out as one call once the finger rests; a value HA never reports is dropped after a while.
   for(size_t i=0;i<model.count;++i){
-    auto &t=model.tiles[i];if(!std::isfinite(t.edit_value))continue;
+    auto &t=model.tiles[i];if(!std::isfinite(t.edit_value)&&!std::isfinite(t.edit_high))continue;
     uint32_t now=esphome::millis();
     if(!t.edit_sent){
       if(now-t.edit_since<700 || t.waiting(now))continue;
       auto a=tile_controls::edit_action(t,t.edit_value);
-      if(a.valid()){t.edit_sent=true;t.edit_since=now;action(a.service,t.entity,a.key,a.value);}else t.edit_value=NAN;
-    }else if(now-t.edit_since>10000){t.edit_value=NAN;card(i);}
+      if(a.valid()){t.edit_sent=true;t.edit_since=now;action(a.service,t.entity,a.key,a.value,true,a.key2,a.value2);}else{t.edit_value=NAN;t.edit_high=NAN;}
+    }else if(now-t.edit_since>10000){t.edit_value=NAN;t.edit_high=NAN;card(i);}
   }
   // Running timers advance once per second without any HA traffic; clocks show hours and minutes,
   // so they are drawn again only when the minute (or the time's validity) changes.
@@ -7400,11 +7705,13 @@ inline void cover_tick(uint32_t now) {
 // board's third online_image; a page of covers alone loads once. It waits for the alert's picture, a cover or the
 // camera full screen: one picture loads at a time. A page turn, a card over the page, another look or another track
 // (the picture's mark in the media state) changes what is wanted: the strip is dropped and asked for again.
-// `dark` (firmware 0.15.0+): the look the pictures were drawn for. A map card is drawn for the look the screen is in,
+// `dark` (firmware 0.20.0+): the look the pictures were drawn for. A map card is drawn for the look the screen is in,
 // so it belongs in the wish and in `live_key`, the name the picture store keeps a picture under. The tile's ground
 // already changes with the look, but not for a picture that came back smaller than its frame (live_place paints those
 // on CAMERA_PAGE, black in both looks), so the ground alone would let a light map be adopted for the dark one.
-struct LiveWish { std::string entities, grounds, marks, atlas; int size = 0, atlas_x = 0, atlas_y = 0, atlas_scale = picture_store::SCALE_ONE; uint32_t every = 15000; bool cameras = false, dark = false; };
+// `tiles`: the tiles' own indexes in the same order (firmware 0.16.0+): one entity may be on several tiles of a page,
+// each with its own square and settings, and the app takes each tile's own settings by its index.
+struct LiveWish { std::string entities, tiles, grounds, marks, atlas; int size = 0, atlas_x = 0, atlas_y = 0, atlas_scale = picture_store::SCALE_ONE; uint32_t every = 15000; bool cameras = false, dark = false; };
 inline LiveWish live_wish;
 inline camera_view::Feed live;  // entity: the list asked for
 inline std::string live_have;   // the list the strip on screen holds, "" for a tile without a picture
@@ -7461,8 +7768,9 @@ inline LiveWish live_wanted() {
     if (!w.tile || lv_obj_has_flag(w.tile, LV_OBJ_FLAG_HIDDEN) || w.index >= model.count) continue;
     const auto &t = model.tiles[w.index];
     if (!t.pictured()) continue;
-    if (!want.entities.empty()) { want.entities += ','; want.grounds += ','; want.marks += ','; }
+    if (!want.entities.empty()) { want.entities += ','; want.tiles += ','; want.grounds += ','; want.marks += ','; }
     want.entities += t.entity;
+    want.tiles += std::to_string(w.index);
     char ground[8];
     uint32_t behind=(t.transparent||card_art(t)) ? theme::hex(theme::PAGE) : theme::surface(t.background);
     if(atlas){
@@ -7496,24 +7804,33 @@ inline LiveWish live_wanted() {
 inline std::string live_key(const LiveWish &w) {
   char size[12];
   snprintf(size, sizeof(size), "%d", w.size);
-  return "live|" + w.entities + "|" + w.grounds + "|" + w.marks + "|" + w.atlas + "|" + size + (w.dark ? "|d" : "|l");
+  return "live|" + w.entities + "|" + w.tiles + "|" + w.grounds + "|" + w.marks + "|" + w.atlas + "|" + size + (w.dark ? "|d" : "|l");
 }
-// The strip's square for a tile, or nullptr while the strip is not here (or has no picture of this camera).
-inline lv_image_dsc_t *live_ready(const std::string &entity, int size, int &square) {
+// Whether the n-th item of a comma list is this one.
+inline bool list_has_at(const std::string &list, int n, const std::string &item) {
+  size_t start = 0;
+  for (int i = 0; i < n; ++i) { start = list.find(',', start); if (start == std::string::npos) return false; ++start; }
+  const size_t comma = list.find(',', start);
+  return list.compare(start, comma == std::string::npos ? std::string::npos : comma - start, item) == 0 &&
+         (comma == std::string::npos ? list.size() - start : comma - start) == item.size();
+}
+// The strip's square for a tile, or nullptr while the strip is not here (or has no picture of this camera). The square
+// is the tile's own place in the wish, found by its index: an entity on several tiles has a square on each.
+inline lv_image_dsc_t *live_ready(size_t index, const std::string &entity, int size, int &square) {
+  square = list_index(live_wish.tiles, std::to_string(index));
+  if (square < 0) return nullptr;
   if (pictures_kept()) {
     if (live_wish.atlas.empty() && live_wish.size != size) return nullptr;
     auto *kept = pictures.entry(live_key(live_wish));
     if (kept) {
-      square = list_index(kept->note, entity);  // the tiles the app answered for, "" where it had no picture
-      if (square < 0) return nullptr;
+      // The tiles the app answered for, "" where it had no picture.
+      if (!list_has_at(kept->note, square, entity)) return nullptr;
       return !live_wish.atlas.empty() || kept->image.header.h >= (square + 1) * size ? &kept->image : nullptr;
     }
     // Not kept (no room in the store): the download itself, as on a board without PSRAM, until the page turns
     // (live_release). Before firmware 0.9.0 such a page showed no picture at all (GitHub #68).
   }
-  if (!live.loaded || (live_wish.atlas.empty() && live_wish.size != size)) return nullptr;
-  square = list_index(live_have, entity);
-  if (square < 0) return nullptr;
+  if (!live.loaded || (live_wish.atlas.empty() && live_wish.size != size) || !list_has_at(live_have, square, entity)) return nullptr;
   auto *src = camera_live.source();
   return src && src->data && (!live_wish.atlas.empty() || src->header.h >= (square + 1) * size) ? src : nullptr;
 }
@@ -7566,7 +7883,7 @@ inline void live_release() {
 inline void live_place(Widgets &w, const Tile &t, int size, int x, int y) {
 #if LV_USE_IMAGE
   int square = -1;
-  lv_image_dsc_t *src = t.pictured() ? live_ready(t.entity, size, square) : nullptr;
+  lv_image_dsc_t *src = t.pictured() ? live_ready(w.index, t.entity, size, square) : nullptr;
   if (src) {
     if (!w.picture) {
       w.picture = lv_image_create(w.tile);
@@ -7635,8 +7952,9 @@ inline void live_request() {
   snprintf(size_text, sizeof(size_text), "%d", live_wish.size);
   // "dark" (app 0.4.24): a map is drawn in the look the screen is in, so the app needs to know which one. An older
   // app reads only the keys it knows and simply ignores it.
-  const std::string keys[] = {"inbox", "tiles", "size", "bg", "session", "rev", "view", "dark", "atlas"}, values[] = {inbox, live_wish.entities, size_text, live_wish.grounds, protocol_key(transfer.lease), layout_rev, std::to_string(++live_view_id), live_wish.dark ? "1" : "0", live_wish.atlas};
-  const int count=live_wish.atlas.empty()?8:9;
+  // `idx` (firmware 0.16.0+): each square's tile by its index, so the app prepares it the way that tile asks.
+  const std::string keys[] = {"inbox", "tiles", "idx", "size", "bg", "session", "rev", "view", "dark", "atlas"}, values[] = {inbox, live_wish.entities, live_wish.tiles, size_text, live_wish.grounds, protocol_key(transfer.lease), layout_rev, std::to_string(++live_view_id), live_wish.dark ? "1" : "0", live_wish.atlas};
+  const int count=live_wish.atlas.empty()?9:10;
   request.data.init(count);
   for (int i = 0; i < count; ++i) {
     esphome::api::HomeassistantServiceMap entry;
@@ -7650,7 +7968,7 @@ inline void live_request() {
 inline void live_tick(uint32_t now) {
   if (!live_supported()) return;
   LiveWish want = live_wanted();
-  if (want.entities != live_wish.entities || want.grounds != live_wish.grounds || want.marks != live_wish.marks || want.size != live_wish.size || want.atlas != live_wish.atlas ||
+  if (want.entities != live_wish.entities || want.tiles != live_wish.tiles || want.grounds != live_wish.grounds || want.marks != live_wish.marks || want.size != live_wish.size || want.atlas != live_wish.atlas ||
       want.atlas_x != live_wish.atlas_x || want.atlas_y != live_wish.atlas_y || want.atlas_scale != live_wish.atlas_scale || want.dark != live_wish.dark) {
     live_wish = want;
     live_release();

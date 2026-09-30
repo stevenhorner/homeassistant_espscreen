@@ -191,7 +191,7 @@ def can_show_live(screen):
 def can_show_map(screen):
     """A paired screen whose board draws pictures and whose firmware takes a map tile in the page's strip.
 
-    A map on a person tile (app 0.4.24, firmware 0.15.0): the app draws the whole frame itself (map_card.render) and
+    A map on a person tile (app 0.4.33, firmware 0.20.0): the app draws the whole frame itself (map_card.render) and
     puts it in the same strip, so a map costs no second picture path and no coordinate leaves Home Assistant."""
     return bool(screen) and board_of(screen) in BOXES and (screen_firmware(screen) or (0, 0, 0)) >= MAP_MIN_FIRMWARE
 
@@ -199,12 +199,12 @@ def can_show_map(screen):
 def picture_modes(screen, options_of, entities):
     """(fit, fade) per tile of a live strip: how the app prepares each picture. A camera gets its own choices on every
     card the screen's firmware fills with it (1x2 and 2x2 from 0.3.3, every size from 0.3.7); everything else is
-    filled and left alone."""
+    filled and left alone. `options_of(n, entity)` gives the options of the strip's n-th tile."""
     firmware = screen_firmware(screen) or (0, 0, 0)
     sizes = None if firmware >= CAMERA_CARD_FIRMWARE else ('tall', 'square') if firmware >= CAMERA_ART_FIRMWARE else ()
     modes = []
-    for entity in entities:
-        options = options_of(entity) or {}
+    for n, entity in enumerate(entities):
+        options = options_of(n, entity) or {}
         if supported(entity) and options.get('display') == 'live' and (sizes is None or options.get('size') in sizes):
             modes.append((options.get('fit', 'fill'), options.get('overlay', 'name') != 'none'))
         # A map always fills its frame, because the app drew it at exactly that size; `overlay` says whether the
@@ -233,7 +233,8 @@ def live_request(request, atlas=False):
         size = int(request.get('size'))
     except (TypeError, ValueError):
         return None
-    if not 1 <= len(entities) <= (64 if atlas else LIVE_MAX_TILES) or len(colours) != len(entities) or (not atlas and len(set(entities)) != len(entities)):
+    # One entity may be on several tiles of a page (firmware 0.16.0+): each copy has its own square, in the list's order.
+    if not 1 <= len(entities) <= (64 if atlas else LIVE_MAX_TILES) or len(colours) != len(entities):
         return None
     if not LIVE_SIZES[0] <= size <= LIVE_SIZES[1] or not all(supported(e) or cover_supported(e) or map_card.supported(e) for e in entities) or not all(re.fullmatch(r'[0-9A-Fa-f]{6}', c) for c in colours):
         return None
@@ -244,9 +245,21 @@ def listing(entities, raws, renders=None):
     """The entities the strip really carries, '' where a camera had no snapshot.
 
     An entity the app draws itself is always there: a strip that came from the cache skipped the drawing, so its
-    frame is None here even though the picture holds it (app 0.4.24)."""
+    frame is None here even though the picture holds it (app 0.4.33)."""
     renders = renders or {}
     return [entity if entity in renders or raw is not None else '' for entity, raw in zip(entities, raws)]
+
+
+def live_indexes(request, entities):
+    """The tiles a live request names by index (`idx`, firmware 0.16.0+), one per entity; None when it names none (older
+    firmware) or names them wrong."""
+    idx = request.get('idx')
+    if not isinstance(idx, str) or not idx:
+        return None
+    parts = idx.split(',')
+    if len(parts) != len(entities) or not all(part.isdigit() and len(part) <= 3 for part in parts):
+        return None
+    return [int(part) for part in parts]
 
 
 def cover_request(request):
@@ -535,7 +548,7 @@ class CameraFeed:
         """(etag, BMP, entities with '' where a camera has no snapshot) of the strip for a page's camera tiles at
         `size` with `grounds` behind the corners and `paces` in seconds per tile, or None when no camera has one.
 
-        `renders` gives an entity the app draws itself (a map card, app 0.4.24) as (mark, draw), where `draw(width,
+        `renders` gives an entity the app draws itself (a map card, app 0.4.33) as (mark, draw), where `draw(width,
         height)` gives a `PIL.Image` of exactly that frame, or an awaitable of one. Its mark stands where a camera's
         digest stands, so the strip's cache key is unique per render input: two cards of the same person with
         different companions never share an entry. A mark that is a callable is asked again on every load, so a
@@ -734,6 +747,27 @@ def port():
     return value if 0 < value < 65536 else PORT
 
 
+async def published_port():
+    """The host port screens reach this app on (GitHub #84): on Home Assistant OS the owner may publish 8098 under
+    another port in the app's network settings, and the app still listens on 8098 inside its container. The
+    Supervisor says which (`network` of /addons/self/info); SCREEN_CAMERA_PORT, or no Supervisor, keeps port()."""
+    token = os.environ.get('SUPERVISOR_TOKEN', '')
+    if 'SCREEN_CAMERA_PORT' in os.environ or not token:
+        return port()
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://supervisor/addons/self/info', headers={'Authorization': f'Bearer {token}'},
+                                   timeout=aiohttp.ClientTimeout(total=10)) as response:
+                info = await response.json()
+        value = int(((info.get('data') or {}).get('network') or {}).get(f'{PORT}/tcp'))
+        if 0 < value < 65536:
+            return value
+    except Exception as error:
+        LOG.info('Reading the published camera port failed (%s)', type(error).__name__)
+    return port()
+
+
 async def base_url(request, cache={}):
     """http://<address>:<port> where screens reach this app: SCREEN_CAMERA_URL when set, else Home Assistant's
     own LAN address (the add-on's port is published on the host). `request` is HomeAssistant.request."""
@@ -761,5 +795,5 @@ async def base_url(request, cache={}):
             LOG.info('Reading the internal URL failed (%s)', type(error).__name__)
     if not host:
         return None
-    cache.update(url=f'http://{host}:{port()}', at=now)
+    cache.update(url=f'http://{host}:{await published_port()}', at=now)
     return cache['url']

@@ -1,4 +1,4 @@
-"""The map card (app 0.4.24, firmware 0.15.0): the add-on works out the geometry, the movement mark and the picture.
+"""The map card (app 0.4.33, firmware 0.20.0): the add-on works out the geometry, the movement mark and the picture.
 
 No test here reaches the network. The basemap is handed in as a plain image, and the card's own words come from the
 translations, so what these tests check is the arithmetic and the pixels, never Home Assistant.

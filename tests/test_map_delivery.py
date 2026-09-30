@@ -1,4 +1,4 @@
-"""A map card reaches a screen the way a camera does (app 0.4.24, firmware 0.15.0).
+"""A map card reaches a screen the way a camera does (app 0.4.33, firmware 0.20.0).
 
 The screen asks for the pictures of its page, the app looks every named tile up in that screen's **saved** layout,
 renders the map ones itself and puts them in the same atlas the cameras go in. Nothing here touches the network: the
@@ -31,7 +31,7 @@ HAS_AIOHTTP = importlib.util.find_spec('aiohttp') is not None
 if HAS_AIOHTTP:
     from server import Manager  # noqa: E402
 
-MAP_FIRMWARE = '0.15.0'
+MAP_FIRMWARE = '0.20.0'
 HOME = {'state': 'zoning', 'attributes': {'friendly_name': 'Home', 'latitude': 52.0, 'longitude': 5.0, 'radius': 100}}
 
 
@@ -236,15 +236,24 @@ class Composing(unittest.TestCase):
         self.assertIsNone(camera_feed.live_request({'tiles': 'light.a', 'size': '54', 'bg': 'FFFFFF'}, atlas=True))
 
     def test_a_map_fills_its_card_and_keeps_its_name_band(self):
-        options = {'person.robin': {'display': 'map'}, 'person.sam': {'display': 'map', 'overlay': 'none'}}
-        modes = camera_feed.picture_modes({'firmware': MAP_FIRMWARE}, options.get, list(options))
-        self.assertEqual(modes, [('fill', True), ('fill', False)])
+        options = [
+            {'display': 'map'},
+            {'display': 'map', 'overlay': 'none'},
+        ]
+        self.assertEqual(
+            camera_feed.picture_modes(
+                {'firmware': MAP_FIRMWARE},
+                lambda n, entity: options[n],
+                ['person.robin', 'person.sam'],
+            ),
+            [('fill', True), ('fill', False)],
+        )
 
     def test_the_map_gate_is_the_firmware_the_layout_asks_for(self):
         from core import MAP_MIN_FIRMWARE
         self.assertEqual(camera_feed.MAP_MIN_FIRMWARE, MAP_MIN_FIRMWARE)
         self.assertTrue(camera_feed.can_show_map({'board': 'guition', 'firmware_known': MAP_FIRMWARE}))
-        self.assertFalse(camera_feed.can_show_map({'board': 'guition', 'firmware_known': '0.14.0'}))
+        self.assertFalse(camera_feed.can_show_map({'board': 'guition', 'firmware_known': '0.19.0'}))
         self.assertFalse(camera_feed.can_show_map({'board': 'cyd', 'firmware_known': MAP_FIRMWARE}))
 
     def test_a_provisional_frame_is_not_kept_so_a_reload_draws_it_again(self):
@@ -348,7 +357,7 @@ class Composing(unittest.TestCase):
 
 @unittest.skipUnless(HAS_AIOHTTP and HAS_PIL, 'needs aiohttp and Pillow')
 class Saving(unittest.IsolatedAsyncioTestCase):
-    """A map is refused before it is saved on a screen that cannot draw one (app 0.4.24)."""
+    """A map is refused before it is saved on a screen that cannot draw one (app 0.4.33)."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -379,7 +388,7 @@ class Saving(unittest.IsolatedAsyncioTestCase):
         ha = ready(fake_ha())
         ha.states['sensor.d3_fw']['state'] = '0.14.0'
         m = self.manager(ha)
-        with self.assertRaisesRegex(ValueError, '0.15.0'):
+        with self.assertRaisesRegex(ValueError, '0.20.0'):
             m.save('text.d3_tiles', self.layout())
 
     async def test_a_screen_at_the_gate_saves_its_map(self):

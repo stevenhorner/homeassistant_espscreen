@@ -81,7 +81,7 @@ static void setup_firmware_ui(lv_obj_t *root) {
   lv_style_set_text_opa(style_room, static_cast<uint8_t>(255.0f));
 
   lv_style_init(style_time);
-  lv_style_set_text_font(style_time, time_label);
+  lv_style_set_text_font(style_time, headline);
   lv_style_set_text_opa(style_time, static_cast<uint8_t>(255.0f));
 
   lv_style_init(style_title);
@@ -151,7 +151,7 @@ lv_obj_add_style(root, style_page, (lv_state_t)(LV_PART_MAIN));
   lv_obj_set_style_pad_top(tile_scroll, 0, LV_PART_MAIN);
   lv_obj_set_style_width(tile_scroll, 1, LV_PART_MAIN);
   lv_obj_set_style_x(tile_scroll, 0, LV_PART_MAIN);
-  lv_obj_set_style_y(tile_scroll, 51, LV_PART_MAIN);
+  lv_obj_set_style_y(tile_scroll, 55, LV_PART_MAIN);
   lv_obj_set_style_bg_opa(tile_scroll, static_cast<uint8_t>(0.0f), LV_STATE_PRESSED);
   lv_obj_remove_flag(tile_scroll, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE));
   lv_obj_set_scrollbar_mode(tile_scroll, LV_SCROLLBAR_MODE_OFF);
@@ -283,6 +283,7 @@ runtime_tiles::watch_value_font = watch_value;
 runtime_tiles::watch_icon_font = watch_icon;
 runtime_tiles::clock_font = clock_digits;
 runtime_tiles::bedside_font = bedside_digits;
+runtime_tiles::display_font = display_digits;
 runtime_tiles::brand_font = brand_wordmark;
 runtime_tiles::brand_mark = tessera_mark;
 runtime_tiles::mini_icon_font = materialdesign_icons_mini;

@@ -110,7 +110,10 @@
       "home": "Kezdőlap",
       "no_network": "Nincs hálózat",
       "configuration_problem": "Konfigurációs hiba.\nFrissítsd a bővítményt.",
-      "configuration_version": "Konfigurációs hiba.\nEllenőrizd a kijelző és a bővítmény verzióját."
+      "configuration_version": "Konfigurációs hiba.\nEllenőrizd a kijelző és a bővítmény verzióját.",
+      "wifi_problem": "Wi-Fi-kapcsolati hiba",
+      "wifi_hotspot": "Csatlakozz a(z) {name} hotspothoz a javításhoz.\nJelszó: {password}",
+      "wifi_usb": "Ellenőrizd a Wi-Fi nevét és jelszavát, majd telepítsd újra ezt a kijelzőt USB-n."
     },
     "preparing": {
       "default": "Csempék elrendezése",
@@ -271,12 +274,6 @@
       "recording": "Felvétel",
       "tap_to_view": "Megtekintés",
       "no_image_yet": "Még nincs kép"
-    },
-    "map": {
-      "no_location": "Nincs helyadat",
-      "away": "1 távol | {n} távol",
-      "unavailable": "Nem elérhető",
-      "more": "+{n} további"
     },
     "calibration": {
       "title": "Kövesd a kalibráló varázslót",
@@ -497,6 +494,12 @@
     },
     "navigation": {
       "back": "Vissza"
+    },
+    "map": {
+      "no_location": "Nincs helyadat",
+      "away": "1 távol | {n} távol",
+      "unavailable": "Nem elérhető",
+      "more": "+{n} további"
     }
   },
   "addon": {
@@ -531,7 +534,7 @@
         "page_titles": "Egy kijelzőn legfeljebb 1 oldal lehet. | Egy kijelzőn legfeljebb {n} oldal lehet.",
         "tiles_max": "Legfeljebb 1 csempét válassz. | Legfeljebb {n} csempét válassz.",
         "unsupported": "Ez az entitás nem támogatott.",
-        "once": "Egy entitás csak egyszer szerepelhet egy kijelzőn.",
+        "once": "Az éjjeliszekrény-óra csak egyszer lehet egy kijelzőn.",
         "tile_name": "A csempe neve legfeljebb 80 bájt lehet.",
         "unknown_settings": "Ismeretlen csempebeállítások.",
         "navigation_size": "A navigációs csempe egyszeres vagy dupla szélességű.",
@@ -551,11 +554,11 @@
         "pages": "Egy kijelzőn 1 oldal van. | Egy kijelzőn 1-{n} oldal lehet.",
         "eight_pages": "Ezek a csempék nem férnek el a kijelző oldalain; távolíts el egy csempét, vagy tegyél egyet kisebbre.",
         "camera_unsupported": "Ez a kijelző nem tud kameraképet megjeleníteni.",
-        "map_unsupported": "Ez a kijelző nem tud térképet mutatni.",
-        "map_entities": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat, mindegyiket egyszer, és nem kétszer a saját entitását.",
         "firmware_first": "Ezekhez a csempékhez előbb telepíts {version} vagy újabb kijelző-firmware-t.",
         "entity_gone": "Egy kiválasztott entitás már nem létezik. Keresd meg az újat.",
-        "ids_too_long": "Ezeknek a csempéknek az entitásazonosítói együtt túl hosszúak ahhoz, hogy egy üzenetben elférjenek; távolíts el néhány csempét."
+        "ids_too_long": "Ezeknek a csempéknek az entitásazonosítói együtt túl hosszúak ahhoz, hogy egy üzenetben elférjenek; távolíts el néhány csempét.",
+        "map_entities": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat, mindegyiket egyszer, és nem kétszer a saját entitását.",
+        "map_unsupported": "Ez a kijelző nem tud térképet mutatni."
       },
       "top_bar": {
         "invalid": "Érvénytelen felső sáv; frissítsd a kezelőoldalt.",
@@ -583,6 +586,7 @@
         "not_for_a_screen": "A(z) {entity} nem tehető kijelzőre.",
         "not_on_screen": "A(z) {entity} nincs ezen a kijelzőn.",
         "add_it_first": "A(z) {entity} nincs ezen a kijelzőn; előbb add hozzá.",
+        "key_stays": "A(z) {entity} az éjjeliszekrény-óra alatt van; ott mozgasd a szerkesztőben.",
         "not_on_spot": "A(z) {entity} nem a(z) {slot}. helyen van.",
         "not_on_page": "A(z) {entity} nem a(z) {page}. oldalon van.",
         "move_where": "Add meg az oldalt vagy a helyet, ahová áthelyezed.",
@@ -600,6 +604,7 @@
         "column_range": "Válassz oszlopot 1 és {last} között; a bal az első, a jobb az utolsó.",
         "full_page_alone": "Az egész oldalas csempe a teljes {page}. oldalt elfoglalja; más nem fér el mellette.",
         "does_not_fit": "Ez nem fér el a(z) {page}. oldalon; a dupla széles csempe két helyet foglal.",
+        "size": "Ezen a kijelzőn nincs {size} méretű csempe. Lehetséges: {sizes}.",
         "order_needed": "Add meg az entitásokat a kívánt sorrendben.",
         "order_not_on_screen": "Nincs ezen a kijelzőn: {entities}.",
         "order_not_on_page": "Nincs a(z) {page}. oldalon: {entities}. Előbb helyezd át oda.",
@@ -721,7 +726,7 @@
         "ambiguous_tile": "A csempeesemény forrása nem egyértelmű; add meg az oldalát",
         "save_first": "A dokumentumbeállítások mentése előtt mentsd az oldaldokumentumot",
         "destination_exists": "A célkijelzőnek már van mentett elrendezése",
-        "update_tall": "A magasabb csempékhez frissítsd a kijelzőt",
+        "update_tall": "Ezekhez a csempeméretekhez frissítsd a kijelzőt",
         "memory": "A kijelzőn nincs elég szabad memória ehhez az elrendezéshez. Csökkentsd a csempék számát."
       },
       "feedback": {
@@ -1242,7 +1247,6 @@
       },
       "search": "Keresés",
       "screens": "Kijelzők",
-      "more": "Továbbiak",
       "refresh": "Frissítés",
       "update": {
         "button": "Frissítés",
@@ -1250,7 +1254,8 @@
         "available": "Frissítés: {version}",
         "no_profile": "Nem található ESPHome-profil ezzel az eszköznévvel.",
         "whats_new": "Újdonságok",
-        "full_log": "Teljes napló"
+        "full_log": "Teljes napló",
+        "short": "Frissítés"
       },
       "host": {
         "hint": "Az IP-cím, egyszer; az új firmware utána maga jelenti.",
@@ -1264,6 +1269,8 @@
         "not_flashed": "Még nincs a Home Assistantban. Már flashelted? Add hozzá az ESPHome-eszközt a Beállítások → Eszközök és szolgáltatások alatt, majd a Konfigurálás alatt engedélyezd a Home Assistant-műveleteket. Még nem flashelted? Firmware és USB → {file}."
       },
       "copy_api_key": "API-kulcs másolása",
+      "files": "Képernyőfájlok letöltése",
+      "files_hint": "A képernyő ESPHome YAML-je a kulcsaival, az Override YAML és egy secrets.yaml a Wi-Fi-vel, hogy a saját gépeden ESPHome-mal fordíthasd.",
       "details": {
         "room": "Helyiség",
         "firmware": "Firmware",
@@ -1437,17 +1444,18 @@
         "alarm_control_panel": "Riasztó",
         "lock": "Zárak"
       },
-      "more": "Több ({n})",
-      "fewer": "Kevesebb",
       "room": "Helyiség",
-      "all_rooms": "Minden helyiség",
       "hide_placed": "Elhelyezettek elrejtése",
       "hide_placed_title": "Ami már ezen a kijelzőn van, azt elrejti",
+      "again": "Már szerepel ezen a kijelzőn; add hozzá újra egy újabb csempéhez",
       "all_placed": "Minden, ami itt van, már szerepel ezen a kijelzőn.",
       "none_found": "Nincs találat. Próbálj másik nevet, helyiséget vagy szűrőt.",
       "full": "Ezen a kijelzőn 1 csempe fér el. | Ezen a kijelzőn {n} csempe fér el.",
       "full_update": "Ezen a kijelzőn 1 csempe fér el; frissítsd a firmware-t 48-hoz. | Ezen a kijelzőn {n} csempe fér el; frissítsd a firmware-t 48-hoz.",
-      "hint": "Húzd egy oldalra, vagy koppints a +-ra az első szabad helyre való hozzáadáshoz. A ⌘K mindenben keres."
+      "hint": "Húzd egy oldalra, vagy koppints a +-ra az első szabad helyre való hozzáadáshoz. A ⌘K mindenben keres.",
+      "resize": "Húzd a könyvtár átméretezéséhez",
+      "filter_label": "Szűrés típus szerint",
+      "no_room": "Helyiség nélkül"
     },
     "domains": {
       "light": "Lámpa",
@@ -1528,16 +1536,16 @@
         "live_needs_firmware": "Az élő képhez 0.2.77 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél.",
         "live_card_hint": "A kép kitölti a csempét, és amíg az oldal látszik, az alább megadott ütemben frissül. Koppintásra továbbra is teljes képernyőn nyílik meg.",
         "live_card_needs_firmware": "A csempét kitöltő képhez 0.3.7 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél. Addig a kijelző kis képet mutat az ikon helyén.",
-        "map": "Térkép",
-        "map_hint": "Térkép arról, hol vannak ezek a személyek. A bővítmény rajzolja meg, és képként küldi a kijelzőnek, így helyadat soha nem jut el magára a kijelzőre. A csempe saját entitása egy személy; telefont vagy autót alább adhatsz hozzá kísérőként.",
-        "map_needs_firmware": "A térképhez 0.15.0 vagy újabb firmware kell: mentés után nyomd meg a Frissítést a kijelzőn.",
         "cover": "Albumborító",
         "cover_hint": "Az éppen szóló zene albumborítója az ikon helyén, mint a Home Assistant saját csempéjén; kép nélküli lejátszónál az ikon marad. Koppintásra továbbra is a kártya nyílik meg.",
         "cover_needs_firmware": "A csempén lévő albumborítóhoz 0.2.78 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél.",
         "no_graph": "A Home Assistantban nincsenek számértékek ehhez az entitáshoz, így a grafikon üres marad. Válassz másik megjelenítést.",
         "no_forecast": "Ennek az időjárás-szolgáltatásnak nincs napi előrejelzése a Home Assistantban. Válassz másik megjelenítést.",
         "tall_cover_hint": "Az albumborítót sötétített háttérként használja. Borító nélkül a normál csempe látszik.",
-        "face_needs_firmware": "Ehhez az órához 0.3.6 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél. Addig a kijelző a digitális órát mutatja."
+        "face_needs_firmware": "Ehhez az órához 0.3.6 vagy újabb firmware kell: mentés után nyomd meg a Frissítés gombot a kijelzőnél. Addig a kijelző a digitális órát mutatja.",
+        "map": "Térkép",
+        "map_hint": "Térkép arról, hol vannak ezek a személyek. A bővítmény rajzolja meg, és képként küldi a kijelzőnek, így helyadat soha nem jut el magára a kijelzőre. A csempe saját entitása egy személy; telefont vagy autót alább adhatsz hozzá kísérőként.",
+        "map_needs_firmware": "A térképhez 0.20.0 vagy újabb firmware kell: mentés után nyomd meg a Frissítést a kijelzőn."
       },
       "refresh": {
         "label": "Frissítés",
@@ -1554,50 +1562,6 @@
           "name": "Név",
           "none": "Semmi"
         }
-      },
-      "map": {
-        "entities": "A térképen",
-        "add": "Entitás hozzáadása",
-        "own": "Ez a csempe",
-        "remove": "Eltávolítás",
-        "full": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat.",
-        "zoom": {
-          "label": "Nagyítás",
-          "fit": "Mindenki látszódjon",
-          "17": "Utca",
-          "15": "Környék",
-          "13": "Város",
-          "11": "Régió"
-        },
-        "labels": {
-          "label": "Feliratok",
-          "names": "Nevek",
-          "initials": "Kezdőbetűk",
-          "nothing": "Semmi"
-        },
-        "basemap": {
-          "label": "Alaptérkép",
-          "auto": "Térkép a Home Assistanttól",
-          "none": "Nincs",
-          "hint": "Térkép a Home Assistanttól: a bővítmény a megjelenített terület csempéit kéri a Home Assistanttól, az pedig az OpenStreetMapről tölti le és tárolja őket. Csak egy nagyítási szint és két szám megy el, név vagy entitás soha.",
-          "none_hint": "Nincs: semmi nem hagyja el a Home Assistantot. A csempe a zónáidat és a rajtuk lévő személyeket mutatja egyszerű háttéren."
-        },
-        "privacy": "A kép titkosítatlanul utazik a hálózatodon, mint minden más kép, így egy térképcsempe nagyjából megmutatja, hol van valaki, bárkinek azon a hálózaton. Helyadat, token vagy térképcím soha nem kerül kijelzőre."
-      },
-      "size": {
-        "label": "Méret",
-        "single": "Normál",
-        "wide": "Dupla széles",
-        "full": "Egész oldal",
-        "full_hint": "Egész oldal: egy nagy gomb a csempe saját színében; a csúszka, a vezérlők vagy a grafikon az alján kap helyet.",
-        "needs_firmware": "Az egész oldalas csempéhez 0.2.62-es firmware kell: előbb nyomd meg a Frissítés gombot a kijelzőnél.",
-        "tall": "1 × 2",
-        "square": "2 × 2",
-        "rectangle_hint": "Szélesség × magasság rácscellákban. A meglévő csempedizájnt használja."
-      },
-      "page": {
-        "label": "Oldal",
-        "new": "Új oldal"
       },
       "controls": {
         "label": "Közvetlen vezérlés a csempén",
@@ -1667,15 +1631,44 @@
         "rows": "Magasság módosítása (fel/le nyílbillentyűk)"
       },
       "sections": {
-        "text": "Szöveg",
         "look": "Megjelenés",
-        "place": "Méret és hely",
         "controls": "Vezérlők",
         "style": "Ikon és szín"
       },
       "keys": {
         "hint": "Húzz egy lámpát, hőmérsékletet vagy zárat az óra alatti kerek helyekre, vagy koppints egy helyre, és válassz egyet. Ezek csempék: koppints egyre a beállításához.",
-        "under": "Az éjjeliszekrény-óra alatt: egy csempe kerek formában. Koppintásra ugyanazt teszi, mint csempeként, nyomva tartva pedig megnyitja a kártyáját."
+        "under": "Az éjjeliszekrény-óra alatt: egy csempe kerek formában. Koppintásra ugyanazt teszi, mint csempeként, nyomva tartva pedig megnyitja a kártyáját.",
+        "name_shown": "Név a gomb alatt",
+        "name_shown_hint": "Kikapcsolva csak a kör látszik."
+      },
+      "map": {
+        "entities": "A térképen",
+        "add": "Entitás hozzáadása",
+        "own": "Ez a csempe",
+        "remove": "Eltávolítás",
+        "full": "Egy térkép legfeljebb 8 személyt vagy eszközkövetőt mutat.",
+        "zoom": {
+          "label": "Nagyítás",
+          "fit": "Mindenki látszódjon",
+          "17": "Utca",
+          "15": "Környék",
+          "13": "Város",
+          "11": "Régió"
+        },
+        "labels": {
+          "label": "Feliratok",
+          "names": "Nevek",
+          "initials": "Kezdőbetűk",
+          "nothing": "Semmi"
+        },
+        "basemap": {
+          "label": "Alaptérkép",
+          "auto": "Térkép a Home Assistanttól",
+          "none": "Nincs",
+          "hint": "Térkép a Home Assistanttól: a bővítmény a megjelenített terület csempéit kéri a Home Assistanttól, az pedig az OpenStreetMapről tölti le és tárolja őket. Csak egy nagyítási szint és két szám megy el, név vagy entitás soha.",
+          "none_hint": "Nincs: semmi nem hagyja el a Home Assistantot. A csempe a zónáidat és a rajtuk lévő személyeket mutatja egyszerű háttéren."
+        },
+        "privacy": "A kép titkosítatlanul utazik a hálózatodon, mint minden más kép, így egy térképcsempe nagyjából megmutatja, hol van valaki, bárkinek azon a hálózaton. Helyadat, token vagy térképcím soha nem kerül kijelzőre."
       }
     },
     "tile_card": {
@@ -1732,6 +1725,7 @@
       "name_placeholder": "Például: Nappali",
       "screen_name": "Kijelző címe",
       "screen_name_hint": "Minden saját cím nélküli oldal ezt mutatja.",
+      "no_title_hint": "Hagyd üresen, ha csak a logót szeretnéd látni.",
       "right": "Jobb oldal: idő, érzékelők vagy óra",
       "item_label": "{name}, {slot}. hely. Enter: beállítás, nyilak: áthelyezés",
       "remove_named": "{name} eltávolítása a felső sávból",
@@ -1937,14 +1931,12 @@
     },
     "installer": {
       "title": {
-        "setup": "Csatlakoztatás és telepítés.",
         "saved": "Profil mentve.",
         "running": "Egy pillanat…",
         "ready": "Letöltésre kész.",
         "done": "Kész.",
         "failed": "Ez nem sikerült."
       },
-      "intro": "A Tessera egyedi kulcsokkal létrehozza a kijelző saját profilját, és lefordítja a firmware-t. Csatlakoztasd a kijelzőt USB-adatkábellel a Home Assistantot futtató géphez, vagy ahhoz a számítógéphez, amelyet most használsz.",
       "board": "Milyen kijelződ van?",
       "board_title": "{name} · {inch} hüvelyk",
       "status": {
@@ -1965,10 +1957,12 @@
         "calibration": "Érintéskalibrálás az első indításkor"
       },
       "choice": {
-        "DISPLAY_MODEL": "Kijelzővezérlő"
+        "DISPLAY_MODEL": "Kijelzővezérlő",
+        "GRID_ROWS": "Csempék egy oldalon"
       },
       "choice_hint": {
-        "DISPLAY_MODEL": "A legtöbb ilyen panelen az első van. Ha a kijelző zajos vagy torz képet mutat, válaszd a másikat."
+        "DISPLAY_MODEL": "A legtöbb ilyen panelen az első van. Ha a kijelző zajos vagy torz képet mutat, válaszd a másikat.",
+        "GRID_ROWS": "Négy sorban nyolc kisebb csempe fér el egy oldalon, sok kapcsolóval rendelkező képernyőhöz. Három sorban a csempék nagyobbak és jobban olvashatók."
       },
       "choice_usual": "a legtöbb panel",
       "orientation": "Hogyan lesz felszerelve?",
@@ -1979,7 +1973,6 @@
       "name": "Név",
       "name_placeholder": "Nappali kijelző",
       "device_name": "Eszköznév",
-      "customize": "testreszabás",
       "name_hint": "Minden kijelző saját profilt kap saját kulcsokkal. Négy kijelződ van? Menj végig ezen négyszer, mindig más névvel.",
       "name_taken": "Már van ilyen nevű kijelző. A Home Assistant megszámozná ennek az entitásneveit, így az automatizmusok rossz kijelzőre mutatnának.",
       "device_name_hint": "Kisbetűk, számjegyek és kötőjelek. Minden kijelzőnek más név.",
@@ -1991,12 +1984,13 @@
         "new": "Csak egyszer kell kitölteni: a Tessera elmenti az ESPHome secrets.yaml fájljába, a későbbi kijelzők automatikusan használják.",
         "missing": "Az ESPHome secrets.yaml fájlodból még hiányoznak a Wi-Fi adatok. A Tessera csak a hiányzó sorokat tölti ki.",
         "ready": "A Wi-Fi adatok az ESPHome secrets.yaml fájlodból jönnek.",
-        "invalid": "Az ESPHome mappában lévő secrets.yaml nem érvényes YAML. Előbb javítsd a fájlt; nem lesz felülírva."
+        "invalid": "Az ESPHome mappában lévő secrets.yaml nem érvényes YAML. Előbb javítsd a fájlt; nem lesz felülírva.",
+        "other": "Másik hálózat",
+        "other_note": "Minden kijelző ezzel a Wi-Fi-vel készül; a meglévők a következő frissítéskor veszik át."
       },
       "install_via": "Telepítés módja",
-      "later": "Később · csak a profil mentése",
       "target": {
-        "usb": "Csatlakoztasd a kijelzőt USB-adatkábellel a Home Assistantot futtató géphez; a lista magától frissül. Ahhoz a számítógéphez csatlakozik, amelyet most használsz? Válaszd a Telepítés ebből a böngészőből lehetőséget.",
+        "usb": "Csatlakoztasd a kijelzőt USB-adatkábellel a Home Assistantot futtató géphez; magától megjelenik itt. Ahhoz a számítógéphez csatlakozik, amelyet most használsz? Válaszd az Erről a számítógépről lehetőséget.",
         "download": "Töltsd le a firmware-t, és a saját számítógépedről, Chrome-ban vagy Edge-ben töltsd fel a kijelzőre. Utána a frissítések Wi-Fi-n mennek.",
         "later": "A profil az ESPHome mappába kerül. Később telepítheted a Firmware és USB alatt, vagy az ESPHome Device Builderből.",
         "several": "Több panel is csatlakozik: válaszd ki ennek a kijelzőnek a portját.",
@@ -2046,12 +2040,75 @@
         "tiles": "{bold} A Tesserába visszatérve a kijelző kb. harminc másodpercen belül megjelenik a bal oldali listában; addig „még nincs a Home Assistantban” jelzéssel látszik.",
         "tiles_bold": "Válaszd ki a csempéidet."
       },
-      "log": "ESPHome-napló",
       "retry": "Újra",
       "another": "Másik kijelző telepítése",
       "start_over": "Újrakezdés",
       "done": "Kész",
-      "key_more": "API-kulcs megjelenítése"
+      "key_more": "API-kulcs megjelenítése",
+      "steps": {
+        "board": "Kijelző",
+        "setup": "Beállítás",
+        "install": "Telepítés"
+      },
+      "pick_title": "Milyen kijelződ van?",
+      "pick_intro": "Válaszd ki a lapkát. Keress márkára, méretre vagy a feliratra.",
+      "search": "Keresés márka, méret vagy modell szerint",
+      "sizes": {
+        "all": "Mind",
+        "small": "4 hüvelykig",
+        "medium": "4–6 hüvelyk",
+        "large": "7 hüvelyk felett"
+      },
+      "none_found": "Nincs találat erre: „{query}”.",
+      "try_virtual": "Még nincs kijelződ? Próbálj ki egy előnézeti kijelzőt",
+      "setup_title": "Legyen a tiéd",
+      "install_title": "Hogyan szeretnéd telepíteni?",
+      "next": "Tovább",
+      "advanced": "Haladó",
+      "ways": {
+        "ha_title": "USB a Home Assistanten",
+        "ha_found": "Megtalálva: {port}",
+        "ha_waiting": "Csatlakoztasd a kijelzőt ahhoz a géphez, amelyen a Home Assistant fut",
+        "browser_title": "Erről a számítógépről",
+        "browser_detail": "Chrome vagy Edge, a kijelző ennek a gépnek az USB-jén",
+        "download_title": "Fájl letöltése",
+        "download_detail": "Tedd fel magad az ESPHome Webbel",
+        "later_title": "Később",
+        "later_detail": "Csak a beállítások mentése"
+      },
+      "steps_done": {
+        "prepare": "Előkészítés",
+        "build": "Firmware fordítása",
+        "write": "Írás a kijelzőre",
+        "restart": "Indulás",
+        "done": "Kész",
+        "download": "Letölthető"
+      },
+      "elapsed": "{time} óta",
+      "show_log": "Részletek",
+      "hide_log": "Részletek elrejtése",
+      "next_title": "Mi a következő",
+      "model": "Melyik modell?",
+      "model_hint": "A lapka hátoldalán olvasható. Hasonlítanak, de mindegyiknek saját firmware kell.",
+      "models": "{n} modell | {n} modell",
+      "arrive": {
+        "waiting": "Várakozás, amíg {name} megjelenik a Wi-Fi-n...",
+        "seen": "{name} a Wi-Fi-n van. Párosítsd most a Home Assistantben.",
+        "paired": "{name} párosítva a Home Assistanttel.",
+        "missing": "{name} még nincs a Wi-Fi-n",
+        "hotspot": "Nézd meg a kijelzőt: kiír egy hotspotot és a jelszavát. Csatlakozz hozzá a telefonoddal, és ott válaszd ki a helyes Wi-Fi-t. Vagy add meg itt a helyes Wi-Fi-t, és telepítsd újra.",
+        "no_hotspot": "Valószínűleg rossz a Wi-Fi neve vagy jelszava. Add meg itt a helyes Wi-Fi-t, és telepítsd újra, a kijelző még a kábelen legyen.",
+        "change": "Wi-Fi módosítása és újratelepítés"
+      },
+      "choice_option": {
+        "GRID_ROWS": {
+          "3": "3 sor",
+          "4": "4 sor, kisebb csempék"
+        }
+      },
+      "choice_first": {
+        "GRID_ROWS": "a szokásos méret"
+      }
     },
     "alerts": {
       "eyebrow": "Figyelmeztetések · puska",
@@ -2466,7 +2523,15 @@
       "saved": "Mentve ebben a böngészőben",
       "hint": "A kijelző saját firmware-e, a szerkesztett elrendezésből rajzolva. Koppints, tartsd lenyomva és húzd, mint a kijelzőn. Semmi nem mentődik.",
       "control": "A koppintások vezérlik az eszközöket",
-      "control_hint": "Bekapcsolva: egy csempére koppintás végrehajtja a műveletét a Home Assistantben, mint a kijelzőn. Kikapcsolva: az előnézet csak megmutatja, mit tenne a koppintás."
+      "control_hint": "Bekapcsolva: egy csempére koppintás végrehajtja a műveletét a Home Assistantben, mint a kijelzőn. Kikapcsolva: az előnézet csak megmutatja, mit tenne a koppintás.",
+      "skipped": "A(z) {names} előnézeti kijelző nem tölthető be, kimaradt."
+    },
+    "inspector": {
+      "kind": {
+        "tile": "Csempe",
+        "page": "Oldal",
+        "bar": "Felső sáv"
+      }
     }
   }
 }

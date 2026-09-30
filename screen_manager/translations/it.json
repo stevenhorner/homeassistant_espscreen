@@ -110,7 +110,10 @@
       "home": "Casa",
       "no_network": "Nessuna rete",
       "configuration_problem": "Problema di configurazione.\nAggiorna il componente aggiuntivo.",
-      "configuration_version": "Problema di configurazione.\nControlla le versioni dello schermo e del componente aggiuntivo."
+      "configuration_version": "Problema di configurazione.\nControlla le versioni dello schermo e del componente aggiuntivo.",
+      "wifi_problem": "Problema di connessione Wi-Fi",
+      "wifi_hotspot": "Collegati all’hotspot {name} per risolvere.\nPassword: {password}",
+      "wifi_usb": "Controlla nome e password del Wi-Fi, poi reinstalla questo schermo via USB."
     },
     "preparing": {
       "default": "Sistemando i riquadri",
@@ -271,12 +274,6 @@
       "recording": "Registrazione",
       "tap_to_view": "Tocca per vedere",
       "no_image_yet": "Niente immagine"
-    },
-    "map": {
-      "no_location": "Nessuna posizione",
-      "away": "1 fuori | {n} fuori",
-      "unavailable": "Non disponibile",
-      "more": "+{n} altri"
     },
     "calibration": {
       "title": "Segui la calibrazione",
@@ -497,6 +494,12 @@
     },
     "navigation": {
       "back": "Indietro"
+    },
+    "map": {
+      "no_location": "Nessuna posizione",
+      "away": "1 fuori | {n} fuori",
+      "unavailable": "Non disponibile",
+      "more": "+{n} altri"
     }
   },
   "addon": {
@@ -531,7 +534,7 @@
         "page_titles": "Uno schermo ha al massimo 1 pagina. | Uno schermo ha al massimo {n} pagine.",
         "tiles_max": "Scegli al massimo 1 riquadro. | Scegli al massimo {n} riquadri.",
         "unsupported": "Questa entità non è supportata.",
-        "once": "Un'entità può comparire una sola volta su uno schermo.",
+        "once": "L'orologio da comodino può stare una sola volta su uno schermo.",
         "tile_name": "Il nome di un riquadro può contenere al massimo 80 byte.",
         "unknown_settings": "Impostazioni del riquadro sconosciute.",
         "navigation_size": "Un riquadro di navigazione ha dimensione normale o larghezza doppia.",
@@ -551,11 +554,11 @@
         "pages": "Uno schermo ha 1 pagina. | Uno schermo ha da 1 a {n} pagine.",
         "eight_pages": "Questi riquadri non stanno nelle pagine di questo schermo; rimuovi un riquadro o rimpiccioliscine uno.",
         "camera_unsupported": "Questo schermo non può mostrare le immagini della telecamera.",
-        "map_unsupported": "Questo schermo non può mostrare una mappa.",
-        "map_entities": "Una mappa mostra al massimo 8 persone o localizzatori, ciascuno una volta, e non due volte la propria entità.",
         "firmware_first": "Per questi riquadri installa prima sullo schermo il firmware {version} o più recente.",
         "entity_gone": "Un'entità scelta non esiste più. Cerca la nuova entità.",
-        "ids_too_long": "Insieme, gli ID entità di questi riquadri sono troppo lunghi per stare in un solo messaggio allo schermo; rimuovi qualche riquadro."
+        "ids_too_long": "Insieme, gli ID entità di questi riquadri sono troppo lunghi per stare in un solo messaggio allo schermo; rimuovi qualche riquadro.",
+        "map_entities": "Una mappa mostra al massimo 8 persone o localizzatori, ciascuno una volta, e non due volte la propria entità.",
+        "map_unsupported": "Questo schermo non può mostrare una mappa."
       },
       "top_bar": {
         "invalid": "Barra superiore non valida; ricarica la pagina di gestione.",
@@ -583,6 +586,7 @@
         "not_for_a_screen": "{entity} non può andare su uno schermo.",
         "not_on_screen": "{entity} non è su questo schermo.",
         "add_it_first": "{entity} non è su questo schermo; aggiungila prima.",
+        "key_stays": "{entity} sta sotto l'orologio da comodino; spostalo lì nell'editor.",
         "not_on_spot": "{entity} non è nello spazio {slot}.",
         "not_on_page": "{entity} non è a pagina {page}.",
         "move_where": "Indica la pagina o lo spazio in cui spostarla.",
@@ -600,6 +604,7 @@
         "column_range": "Scegli una colonna tra 1 e {last}; left e right sono la prima e l'ultima.",
         "full_page_alone": "Un riquadro a pagina intera occupa tutta la pagina {page}; lì non ci sta nient'altro.",
         "does_not_fit": "Non ci sta a pagina {page}; un riquadro a larghezza doppia occupa due spazi.",
+        "size": "Questo schermo non ha tessere di {size}. Dimensioni possibili: {sizes}.",
         "order_needed": "Indica le entità nell'ordine che vuoi.",
         "order_not_on_screen": "Non su questo schermo: {entities}.",
         "order_not_on_page": "Non a pagina {page}: {entities}. Spostale prima su quella pagina.",
@@ -721,7 +726,7 @@
         "ambiguous_tile": "L’evento della tessera ha un’origine ambigua; specifica la pagina",
         "save_first": "Salva la disposizione delle pagine prima delle relative impostazioni",
         "destination_exists": "Lo schermo di destinazione ha già una disposizione salvata",
-        "update_tall": "Aggiorna lo schermo per usare tessere più alte",
+        "update_tall": "Aggiorna lo schermo per usare queste dimensioni di tessera",
         "memory": "Lo schermo non ha abbastanza memoria libera per questo layout. Usa meno riquadri."
       },
       "feedback": {
@@ -1242,7 +1247,6 @@
       },
       "search": "Cerca",
       "screens": "Schermi",
-      "more": "Altro",
       "refresh": "Ricarica",
       "update": {
         "button": "Aggiorna",
@@ -1250,7 +1254,8 @@
         "available": "Aggiornamento {version}",
         "no_profile": "Nessun profilo ESPHome trovato con questo nome dispositivo.",
         "whats_new": "Novità",
-        "full_log": "Registro completo"
+        "full_log": "Registro completo",
+        "short": "Aggiornamento"
       },
       "host": {
         "hint": "L'indirizzo IP, una sola volta; poi il nuovo firmware lo comunica da solo.",
@@ -1264,6 +1269,8 @@
         "not_flashed": "Non ancora in Home Assistant. Firmware già installato? Aggiungi il dispositivo ESPHome in Impostazioni → Dispositivi e servizi, poi consenti le azioni di Home Assistant in Configura. Non ancora installato? Firmware e USB → {file}."
       },
       "copy_api_key": "Copia chiave API",
+      "files": "Scarica i file dello schermo",
+      "files_hint": "Lo YAML ESPHome dello schermo con le sue chiavi, l'Override YAML e un secrets.yaml con il Wi-Fi, per compilarlo con ESPHome sul tuo computer.",
       "details": {
         "room": "Area",
         "firmware": "Firmware",
@@ -1437,17 +1444,18 @@
         "alarm_control_panel": "Allarme",
         "lock": "Serrature"
       },
-      "more": "Altri ({n})",
-      "fewer": "Meno",
       "room": "Area",
-      "all_rooms": "Tutte le aree",
       "hide_placed": "Nascondi quelle già inserite",
       "hide_placed_title": "Nascondi ciò che è già su questo schermo",
+      "again": "Già su questo schermo; aggiungilo di nuovo per un altro riquadro",
       "all_placed": "Tutto ciò che è qui è già su questo schermo.",
       "none_found": "Nessuna entità trovata. Prova un altro nome, un'altra area o un altro filtro.",
       "full": "Questo schermo può contenere 1 riquadro. | Questo schermo può contenere {n} riquadri.",
       "full_update": "Questo schermo può contenere 1 riquadro; aggiorna il suo firmware per averne 48. | Questo schermo può contenere {n} riquadri; aggiorna il suo firmware per averne 48.",
-      "hint": "Trascina su una pagina, o tocca + per aggiungere al primo spazio libero. ⌘K cerca ovunque."
+      "hint": "Trascina su una pagina, o tocca + per aggiungere al primo spazio libero. ⌘K cerca ovunque.",
+      "resize": "Trascina per ridimensionare la libreria",
+      "filter_label": "Filtra per tipo",
+      "no_room": "Senza stanza"
     },
     "domains": {
       "light": "Luce",
@@ -1528,16 +1536,16 @@
         "live_needs_firmware": "Un'immagine dal vivo richiede il firmware 0.2.77 o più recente: premi Aggiorna sullo schermo dopo il salvataggio.",
         "live_card_hint": "L'immagine riempie il riquadro, aggiornata al ritmo qui sotto finché la pagina è sullo schermo. Un tocco la apre ancora a schermo intero.",
         "live_card_needs_firmware": "Un'immagine che riempie il riquadro richiede il firmware 0.3.7 o più recente: premi Aggiorna sullo schermo dopo il salvataggio. Fino ad allora lo schermo mostra una piccola immagine al posto dell'icona.",
-        "map": "Mappa",
-        "map_hint": "Una mappa di dove si trovano queste persone. Il componente aggiuntivo la disegna e invia un'immagine allo schermo, quindi nessuna posizione raggiunge mai lo schermo stesso. L'entità della tessera è una persona; aggiungi sotto un telefono o un'auto come accompagnatore.",
-        "map_needs_firmware": "Una mappa richiede il firmware 0.15.0 o più recente: premi Aggiorna sullo schermo dopo aver salvato.",
         "cover": "Copertina",
         "cover_hint": "La copertina di ciò che suona al posto dell'icona, come nel riquadro di Home Assistant; un lettore senza immagine mantiene la sua icona. Un tocco apre ancora la scheda.",
         "cover_needs_firmware": "La copertina sul riquadro richiede il firmware 0.2.78 o più recente: premi Aggiorna sullo schermo dopo il salvataggio.",
         "no_graph": "Home Assistant non ha valori numerici per questa entità, quindi il grafico resta vuoto. Scegli un'altra visualizzazione.",
         "no_forecast": "Questo servizio meteo non ha previsioni giornaliere in Home Assistant. Scegli un'altra visualizzazione.",
         "tall_cover_hint": "",
-        "face_needs_firmware": "Questo orologio richiede il firmware 0.3.6 o successivo: premi Aggiorna sullo schermo dopo aver salvato. Fino ad allora lo schermo mostra l'orologio digitale."
+        "face_needs_firmware": "Questo orologio richiede il firmware 0.3.6 o successivo: premi Aggiorna sullo schermo dopo aver salvato. Fino ad allora lo schermo mostra l'orologio digitale.",
+        "map": "Mappa",
+        "map_hint": "Una mappa di dove si trovano queste persone. Il componente aggiuntivo la disegna e invia un'immagine allo schermo, quindi nessuna posizione raggiunge mai lo schermo stesso. L'entità della tessera è una persona; aggiungi sotto un telefono o un'auto come accompagnatore.",
+        "map_needs_firmware": "Una mappa richiede il firmware 0.20.0 o più recente: premi Aggiorna sullo schermo dopo aver salvato."
       },
       "refresh": {
         "label": "Aggiorna",
@@ -1554,50 +1562,6 @@
           "name": "Nome",
           "none": "Niente"
         }
-      },
-      "map": {
-        "entities": "Sulla mappa",
-        "add": "Aggiungi entità",
-        "own": "Questa tessera",
-        "remove": "Rimuovi",
-        "full": "Una mappa mostra al massimo 8 persone o localizzatori.",
-        "zoom": {
-          "label": "Zoom",
-          "fit": "Mostra tutti",
-          "17": "Strada",
-          "15": "Quartiere",
-          "13": "Città",
-          "11": "Regione"
-        },
-        "labels": {
-          "label": "Etichette",
-          "names": "Nomi",
-          "initials": "Iniziali",
-          "nothing": "Niente"
-        },
-        "basemap": {
-          "label": "Mappa di base",
-          "auto": "Mappa da Home Assistant",
-          "none": "Nessuna",
-          "hint": "Mappa da Home Assistant: il componente aggiuntivo chiede a Home Assistant i tasselli dell'area mostrata, e Home Assistant li preleva da OpenStreetMap e li mette in cache. Vengono inviati solo un livello di zoom e due numeri, mai un nome o un'entità.",
-          "none_hint": "Nessuna: niente lascia Home Assistant. La tessera mostra le tue zone e le persone su uno sfondo semplice."
-        },
-        "privacy": "L'immagine viaggia in chiaro sulla tua rete, come ogni altra immagine, quindi una tessera mappa mostra a chiunque su quella rete più o meno dove si trova qualcuno. Nessuna posizione, nessun token e nessun indirizzo di mappa viene mai inviato a uno schermo."
-      },
-      "size": {
-        "label": "Dimensione",
-        "single": "Normale",
-        "wide": "Larghezza doppia",
-        "full": "Pagina intera",
-        "full_hint": "Pagina intera: un grande pulsante nel colore del riquadro; in basso trovano posto un cursore, i comandi o un grafico.",
-        "needs_firmware": "Un riquadro a pagina intera richiede il firmware 0.2.62: premi prima Aggiorna per questo schermo.",
-        "tall": "1 × 2",
-        "square": "2 × 2",
-        "rectangle_hint": "Larghezza × altezza in celle. Usa il design attuale della tessera."
-      },
-      "page": {
-        "label": "Pagina",
-        "new": "Nuova pagina"
       },
       "controls": {
         "label": "Controllo diretto sul riquadro",
@@ -1667,15 +1631,44 @@
         "rows": "Modifica altezza (frecce su/giù)"
       },
       "sections": {
-        "text": "Testo",
         "look": "Aspetto",
-        "place": "Dimensione e posizione",
         "controls": "Comandi",
         "style": "Icona e colore"
       },
       "keys": {
         "hint": "Trascina una lampada, una temperatura o una serratura sui posti rotondi sotto l'ora, oppure tocca un posto e scegli. Sono riquadri: toccane uno per impostarlo.",
-        "under": "Sotto l'orologio da comodino: un riquadro nella sua forma rotonda. Un tocco fa ciò che fa su un riquadro, e tenerlo premuto apre la sua scheda."
+        "under": "Sotto l'orologio da comodino: un riquadro nella sua forma rotonda. Un tocco fa ciò che fa su un riquadro, e tenerlo premuto apre la sua scheda.",
+        "name_shown": "Nome sotto il tasto",
+        "name_shown_hint": "Spento mostra solo il cerchio."
+      },
+      "map": {
+        "entities": "Sulla mappa",
+        "add": "Aggiungi entità",
+        "own": "Questa tessera",
+        "remove": "Rimuovi",
+        "full": "Una mappa mostra al massimo 8 persone o localizzatori.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Mostra tutti",
+          "17": "Strada",
+          "15": "Quartiere",
+          "13": "Città",
+          "11": "Regione"
+        },
+        "labels": {
+          "label": "Etichette",
+          "names": "Nomi",
+          "initials": "Iniziali",
+          "nothing": "Niente"
+        },
+        "basemap": {
+          "label": "Mappa di base",
+          "auto": "Mappa da Home Assistant",
+          "none": "Nessuna",
+          "hint": "Mappa da Home Assistant: il componente aggiuntivo chiede a Home Assistant i tasselli dell'area mostrata, e Home Assistant li preleva da OpenStreetMap e li mette in cache. Vengono inviati solo un livello di zoom e due numeri, mai un nome o un'entità.",
+          "none_hint": "Nessuna: niente lascia Home Assistant. La tessera mostra le tue zone e le persone su uno sfondo semplice."
+        },
+        "privacy": "L'immagine viaggia in chiaro sulla tua rete, come ogni altra immagine, quindi una tessera mappa mostra a chiunque su quella rete più o meno dove si trova qualcuno. Nessuna posizione, nessun token e nessun indirizzo di mappa viene mai inviato a uno schermo."
       }
     },
     "tile_card": {
@@ -1732,6 +1725,7 @@
       "name_placeholder": "Per esempio: Soggiorno",
       "screen_name": "Titolo dello schermo",
       "screen_name_hint": "Ogni pagina senza un titolo proprio mostra questo.",
+      "no_title_hint": "Lascia vuoto per mostrare solo il logo.",
       "right": "Destra: ora, sensori o orologio",
       "item_label": "{name}, spazio {slot}. Enter: configura, frecce: sposta",
       "remove_named": "Rimuovi {name} dalla barra superiore",
@@ -1937,14 +1931,12 @@
     },
     "installer": {
       "title": {
-        "setup": "Collega e installa.",
         "saved": "Profilo salvato.",
         "running": "Un attimo…",
         "ready": "Pronto da scaricare.",
         "done": "Fatto.",
         "failed": "Non ha funzionato."
       },
-      "intro": "Tessera crea il profilo dello schermo con chiavi uniche e compila il firmware. Collega lo schermo con un cavo USB dati alla macchina su cui gira Home Assistant, oppure al computer che stai usando ora.",
       "board": "Quale schermo hai?",
       "board_title": "{name} · {inch} pollici",
       "status": {
@@ -1965,10 +1957,12 @@
         "calibration": "Calibrazione del touch al primo avvio"
       },
       "choice": {
-        "DISPLAY_MODEL": "Controller del display"
+        "DISPLAY_MODEL": "Controller del display",
+        "GRID_ROWS": "Riquadri per pagina"
       },
       "choice_hint": {
-        "DISPLAY_MODEL": "La maggior parte di queste schede ha il primo. Scegli l'altro se lo schermo mostra rumore o un'immagine disturbata."
+        "DISPLAY_MODEL": "La maggior parte di queste schede ha il primo. Scegli l'altro se lo schermo mostra rumore o un'immagine disturbata.",
+        "GRID_ROWS": "Quattro righe mettono otto riquadri più piccoli in una pagina, per uno schermo con molti interruttori. Tre righe mantengono i riquadri più grandi e più leggibili."
       },
       "choice_usual": "la maggior parte",
       "orientation": "Come lo appendi?",
@@ -1979,7 +1973,6 @@
       "name": "Nome",
       "name_placeholder": "Schermo del soggiorno",
       "device_name": "Nome dispositivo",
-      "customize": "personalizza",
       "name_hint": "Ogni schermo ha il suo profilo con le sue chiavi. Quattro schermi? Ripeti questi passaggi quattro volte con un nome diverso.",
       "name_taken": "Un altro schermo si chiama già così. Home Assistant numererebbe i nomi delle entità di questo e le automazioni punterebbero allo schermo sbagliato.",
       "device_name_hint": "Lettere minuscole, cifre e trattini. Un nome diverso per ogni schermo.",
@@ -1991,12 +1984,13 @@
         "new": "Da compilare una sola volta: Tessera lo salva nel secrets.yaml di ESPHome e gli schermi successivi lo usano automaticamente.",
         "missing": "Nel tuo secrets.yaml di ESPHome mancano ancora i dati Wi-Fi. Tessera compila solo le righe mancanti.",
         "ready": "Il Wi-Fi viene dal tuo secrets.yaml di ESPHome.",
-        "invalid": "Il secrets.yaml nella cartella di ESPHome non è YAML valido. Correggi prima il file; non verrà sovrascritto."
+        "invalid": "Il secrets.yaml nella cartella di ESPHome non è YAML valido. Correggi prima il file; non verrà sovrascritto.",
+        "other": "Un’altra rete",
+        "other_note": "Ogni schermo viene compilato con questa Wi-Fi; quelli che hai già la prendono al prossimo aggiornamento."
       },
       "install_via": "Installa tramite",
-      "later": "Più tardi · salva solo il profilo",
       "target": {
-        "usb": "Collega lo schermo con un cavo USB dati alla macchina di Home Assistant; l'elenco si aggiorna da solo. Oppure scegli Questo computer per installare da questo browser.",
+        "usb": "Collega lo schermo con un cavo USB dati alla macchina di Home Assistant; compare qui da solo. È collegato al computer che stai usando? Scegli Da questo computer.",
         "download": "Scarica il firmware e mettilo sullo schermo dal tuo computer, in Chrome o Edge. Dopo, gli aggiornamenti arrivano via Wi-Fi.",
         "later": "Il profilo va nella cartella di ESPHome. Puoi installarlo più tardi da Firmware e USB, o da ESPHome Device Builder.",
         "several": "Più schermi collegati: scegli la porta di questo schermo.",
@@ -2046,12 +2040,75 @@
         "tiles": "{bold} In Tessera lo schermo compare nell'elenco a sinistra entro una trentina di secondi; fino ad allora è indicato lì come «non ancora in Home Assistant».",
         "tiles_bold": "Scegli i tuoi riquadri."
       },
-      "log": "Registro ESPHome",
       "retry": "Riprova",
       "another": "Installa un altro schermo",
       "start_over": "Ricomincia",
       "done": "Fatto",
-      "key_more": "Mostra la chiave API"
+      "key_more": "Mostra la chiave API",
+      "steps": {
+        "board": "Schermo",
+        "setup": "Configura",
+        "install": "Installa"
+      },
+      "pick_title": "Quale schermo hai?",
+      "pick_intro": "Scegli la tua scheda. Cerca per marca, dimensione o ciò che c’è stampato sopra.",
+      "search": "Cerca per marca, dimensione o modello",
+      "sizes": {
+        "all": "Tutti",
+        "small": "Fino a 4 pollici",
+        "medium": "Da 4 a 6 pollici",
+        "large": "7 pollici e oltre"
+      },
+      "none_found": "Nessuno schermo corrisponde a “{query}”.",
+      "try_virtual": "Ancora nessuno schermo? Prova uno schermo di anteprima",
+      "setup_title": "Rendilo tuo",
+      "install_title": "Come vuoi installarlo?",
+      "next": "Avanti",
+      "advanced": "Avanzate",
+      "ways": {
+        "ha_title": "USB su Home Assistant",
+        "ha_found": "Trovato: {port}",
+        "ha_waiting": "Collega lo schermo al computer su cui gira Home Assistant",
+        "browser_title": "Da questo computer",
+        "browser_detail": "Chrome o Edge, con lo schermo sulla USB di questo computer",
+        "download_title": "Scarica il file",
+        "download_detail": "Installalo tu con ESPHome Web",
+        "later_title": "Più tardi",
+        "later_detail": "Salva solo le impostazioni"
+      },
+      "steps_done": {
+        "prepare": "Preparazione",
+        "build": "Compilazione del firmware",
+        "write": "Scrittura sullo schermo",
+        "restart": "Avvio",
+        "done": "Fatto",
+        "download": "Pronto da scaricare"
+      },
+      "elapsed": "{time} trascorsi",
+      "show_log": "Mostra dettagli",
+      "hide_log": "Nascondi dettagli",
+      "next_title": "E adesso",
+      "model": "Che modello è?",
+      "model_hint": "È stampato sul retro della scheda. Si somigliano, ma ognuno richiede il proprio firmware.",
+      "models": "{n} modello | {n} modelli",
+      "arrive": {
+        "waiting": "In attesa che {name} compaia sulla tua Wi-Fi...",
+        "seen": "{name} è sulla tua Wi-Fi. Associalo ora in Home Assistant.",
+        "paired": "{name} è associato a Home Assistant.",
+        "missing": "{name} non è ancora sulla tua Wi-Fi",
+        "hotspot": "Guarda lo schermo: mostra un hotspot e la sua password. Collegati con il telefono e scegli lì la Wi-Fi giusta. Oppure imposta qui la Wi-Fi giusta e reinstalla.",
+        "no_hotspot": "Probabilmente il nome o la password della Wi-Fi sono sbagliati. Imposta qui la Wi-Fi giusta e reinstalla, con lo schermo ancora collegato al cavo.",
+        "change": "Cambia Wi-Fi e reinstalla"
+      },
+      "choice_option": {
+        "GRID_ROWS": {
+          "3": "3 righe",
+          "4": "4 righe, riquadri più piccoli"
+        }
+      },
+      "choice_first": {
+        "GRID_ROWS": "la dimensione abituale"
+      }
     },
     "alerts": {
       "eyebrow": "Avvisi · guida rapida",
@@ -2466,7 +2523,15 @@
       "saved": "Salvato in questo browser",
       "hint": "Il firmware stesso dello schermo, disegnato dal layout che stai modificando. Tocca, tieni premuto e scorri come sullo schermo. Non viene salvato nulla.",
       "control": "I tocchi controllano i dispositivi",
-      "control_hint": "Attivo: un tocco su un riquadro esegue la sua azione in Home Assistant, come sullo schermo. Disattivo: l’anteprima mostra solo cosa fa un tocco."
+      "control_hint": "Attivo: un tocco su un riquadro esegue la sua azione in Home Assistant, come sullo schermo. Disattivo: l’anteprima mostra solo cosa fa un tocco.",
+      "skipped": "Lo schermo di anteprima {names} non è stato caricato ed è stato escluso."
+    },
+    "inspector": {
+      "kind": {
+        "tile": "Riquadro",
+        "page": "Pagina",
+        "bar": "Barra superiore"
+      }
     }
   }
 }

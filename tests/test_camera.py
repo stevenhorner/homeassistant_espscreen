@@ -1,6 +1,6 @@
 """Camera images on a Guition (app 0.2.66, firmware 0.2.57): the app fetches, sizes and serves the image on its own
 port; the screen asks with esphome.screen_camera and loads the link with ESPHome's online_image."""
-from firmware_sources import runtime_source
+from firmware_sources import firmware_domains, runtime_source
 from manager_fixtures import with_screen_grid, seed_layout
 import asyncio
 import contextlib
@@ -151,7 +151,7 @@ class Rules(unittest.TestCase):
         self.assertIn('request.service = esphome::StringRef("esphome.screen_camera");', TILES)
         self.assertIn("event_type='esphome.screen_camera'", (ROOT / 'screen_manager/app/server.py').read_text())
         self.assertIn('if (op == "camera") {', TILES)
-        self.assertIn('"camera", "image",', (ROOT / 'components/smart_display/runtime_model.h').read_text())
+        self.assertLessEqual({'camera', 'image'}, firmware_domains())
         # The profile loads both images and binds them; the CYD has none, so it never opens a camera.
         for needle in ('online_image:\n  - id: camera_image', '  - id: alert_image', 'runtime_tiles::camera_loaded(false, cached);',
                        'runtime_tiles::camera_loaded(true, cached);', 'runtime_tiles::camera_tick();', 'runtime_tiles::alert_prepare();',
@@ -752,13 +752,18 @@ class PictureCards(unittest.TestCase):
                    'media_player.sonos': {'display': 'cover', 'size': 'tall'}}
         entities = list(options)
         new = {'firmware': '0.3.3'}
-        self.assertEqual(camera_feed.picture_modes(new, options.get, entities),
+        of = lambda n, entity: options.get(entity)
+        self.assertEqual(camera_feed.picture_modes(new, of, entities),
                          [('contain', True), ('fill', False), ('fill', False), ('fill', False)])
         # Firmware that draws a small square on a taller camera tile gets that square, as before.
-        self.assertEqual(camera_feed.picture_modes({'firmware': '0.3.1'}, options.get, entities), [('fill', False)] * 4)
+        self.assertEqual(camera_feed.picture_modes({'firmware': '0.3.1'}, of, entities), [('fill', False)] * 4)
         # From firmware 0.3.7 a camera fills its card on every size, so the single tile gets its picture made for that.
-        self.assertEqual(camera_feed.picture_modes({'firmware': '0.3.7'}, options.get, entities),
+        self.assertEqual(camera_feed.picture_modes({'firmware': '0.3.7'}, of, entities),
                          [('contain', True), ('fill', False), ('fill', True), ('fill', False)])
+        # One camera on two tiles with choices of their own (firmware 0.16.0+): each place its own tile's.
+        copies = [{'display': 'live', 'fit': 'contain'}, {'display': 'live', 'overlay': 'none'}]
+        self.assertEqual(camera_feed.picture_modes({'firmware': '0.16.0'}, lambda n, entity: copies[n], ['camera.hall'] * 2),
+                         [('contain', True), ('fill', False)])
 
     def test_a_live_tile_may_refresh_every_5_to_30_seconds(self):
         tile = lambda options: validate_layout({'title': 'Hall', 'tiles': [{'entity': 'camera.front_door', 'name': '', 'options': options}]})['tiles'][0]['options']
@@ -810,7 +815,7 @@ class PictureCards(unittest.TestCase):
     def test_the_composer_takes_a_frame_that_is_already_drawn(self):
         """A map card is rendered in the app (map_card.render), so its frame arrives as a picture, not as bytes.
 
-        One composer for cameras, covers and maps, and no encode-then-decode round trip in between (app 0.4.24)."""
+        One composer for cameras, covers and maps, and no encode-then-decode round trip in between (app 0.4.33)."""
         import io, tile_art
         from PIL import Image
         drawn = Image.new('RGB', (200, 300))
@@ -889,8 +894,11 @@ class LiveTiles(unittest.TestCase):
     def test_the_request_names_the_tiles_their_size_and_their_grounds(self):
         self.assertEqual(camera_feed.live_request({'tiles': 'camera.front_door,image.doorbell', 'size': '54', 'bg': 'FFFFFF,fadadd'}),
                          (['camera.front_door', 'image.doorbell'], 54, [0xFFFFFF, 0xFADADD]))
+        # One camera on two tiles of a page (firmware 0.16.0+): a square each, in the list's order.
+        self.assertEqual(camera_feed.live_request({'tiles': 'camera.a,camera.a', 'size': '54', 'bg': 'FFFFFF,fadadd'}),
+                         (['camera.a', 'camera.a'], 54, [0xFFFFFF, 0xFADADD]))
         for bad in ({'tiles': 'camera.a', 'size': '54'}, {'tiles': 'camera.a,light.b', 'size': '54', 'bg': 'FFFFFF,FFFFFF'},
-                    {'tiles': 'camera.a,camera.a', 'size': '54', 'bg': 'FFFFFF,FFFFFF'}, {'tiles': 'camera.a', 'size': '54', 'bg': 'FFFFFF,FFFFFF'},
+                    {'tiles': 'camera.a', 'size': '54', 'bg': 'FFFFFF,FFFFFF'},
                     {'tiles': 'camera.a', 'size': '8', 'bg': 'FFFFFF'}, {'tiles': 'camera.a', 'size': 'x', 'bg': 'FFFFFF'},
                     {'tiles': ','.join(f'camera.c{i}' for i in range(7)), 'size': '54', 'bg': ','.join(['FFFFFF'] * 7)}, {'tiles': '', 'size': '54', 'bg': ''}):
             self.assertIsNone(camera_feed.live_request(bad), bad)
@@ -1062,6 +1070,49 @@ class LiveApp(unittest.IsolatedAsyncioTestCase):
             await m.answer_camera({**request, 'tiles': 'media_player.other,media_player.sonos'})
             self.assertEqual([entry for entry in ha.log if entry[0] == 'send'], [])
 
+    async def test_each_copy_of_a_camera_gets_its_own_fit(self):
+        # One camera on two pages and twice on one (firmware 0.16.0+, GitHub #83): the screen names each square's tile by
+        # its index (`idx`), and each is made the way that tile asks.
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            ha = fake_ha(picture('JPEG', (900, 600)))
+            ha.states['sensor.d1_fw']['state'] = '0.16.0'
+            m = Manager(with_screen_grid(ha), Path(tmp) / 'screens.json')
+            seed_layout(m, 'text.d1_tiles', validate_layout({'title': 'Hall', 'tiles': [
+                {'entity': 'camera.max', 'name': '', 'slot': 0, 'options': {'display': 'live', 'fit': 'contain'}},
+                {'entity': 'camera.max', 'name': '', 'slot': 6, 'options': {'display': 'live', 'overlay': 'none'}},
+                {'entity': 'camera.max', 'name': '', 'slot': 7, 'options': {'display': 'live', 'fit': 'contain', 'overlay': 'none'}},
+                {'entity': 'camera.max', 'name': '', 'slot': 12, 'options': {'display': 'live', 'fit': 'contain'}}]}))
+            async def ask(tiles, frames, idx=None):
+                ha.log.clear()
+                request = {'inbox': 'text.d1_tiles', 'tiles': tiles, 'size': '54', 'bg': ','.join(['FFFFFF'] * len(tiles.split(','))),
+                           'atlas': json.dumps(frames), **({'idx': idx} if idx is not None else {})}
+                with self.assertLogs('screen_manager', 'INFO'):
+                    await m.answer_camera(request)
+                sent = [entry[2] for entry in ha.log if entry[0] == 'send']
+                if not sent or not sent[0]['u']:
+                    return None
+                return m.camera.links[sent[0]['u'].rsplit('/', 1)[1][:-4]].live[4]['modes']
+            one, two = [[0, 0, 220, 140, 20, 0]], [[0, 0, 220, 140, 20, 0], [240, 0, 220, 140, 20, 0]]
+            self.assertEqual(await ask('camera.max', one, '0'), [('contain', True)])
+            self.assertEqual(await ask('camera.max,camera.max', two, '1,2'), [('fill', False), ('contain', False)])
+            self.assertEqual(await ask('camera.max', one, '3'), [('contain', True)])
+            # A screen without indexes (older firmware has an entity once) gets the entity's first live tile.
+            self.assertEqual(await ask('camera.max,camera.max', two), [('contain', True), ('contain', True)])
+            # An index that is not a pictured tile of that camera gets nothing.
+            ha.log.clear()
+            await m.answer_camera({'inbox': 'text.d1_tiles', 'tiles': 'camera.max', 'idx': '9', 'size': '54', 'bg': 'FFFFFF',
+                                   'atlas': json.dumps(one)})
+            self.assertEqual([entry for entry in ha.log if entry[0] == 'send'], [])
+            # Without an atlas two copies on one page are two squares of one strip.
+            ha.log.clear()
+            with self.assertLogs('screen_manager', 'INFO'):
+                await m.answer_camera({'inbox': 'text.d1_tiles', 'tiles': 'camera.max,camera.max', 'idx': '1,2', 'size': '54', 'bg': 'FFFFFF,FADADD'})
+            (_, _, message), = [entry for entry in ha.log if entry[0] == 'send']
+            self.assertEqual(message['e'], 'camera.max,camera.max')
+            self.assertEqual(camera_feed.live_indexes({'idx': '1,x'}, ['a', 'b']), None)
+            self.assertEqual(camera_feed.live_indexes({'idx': '1'}, ['a', 'b']), None)
+
     async def test_a_camera_without_a_picture_keeps_its_icon(self):
         with tempfile.TemporaryDirectory() as tmp:
             ha = fake_ha(None)
@@ -1075,12 +1126,64 @@ class LiveApp(unittest.IsolatedAsyncioTestCase):
             self.assertIn('no image', logs.output[-1])
 
 
+@unittest.skipUnless(HAS_AIOHTTP, 'aiohttp')
+class PublishedPort(unittest.IsolatedAsyncioTestCase):
+    """GitHub #84: an owner who publishes 8098 as 8099 on Home Assistant OS gets links on 8099."""
+
+    def setUp(self):
+        camera_feed.base_url.__defaults__[0].clear()
+
+    async def base(self, info, env):
+        from unittest import mock
+
+        class Response:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *exc):
+                return False
+            async def json(self):
+                if isinstance(info, Exception):
+                    raise info
+                return info
+
+        class Session:
+            def __init__(self, *a, **k):
+                pass
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *exc):
+                return False
+            def get(self, url, **kwargs):
+                assert url == 'http://supervisor/addons/self/info'
+                return Response()
+
+        async def request(kind, **data):
+            return {'adapters': [{'default': True, 'ipv4': [{'address': '192.168.1.5'}]}]}
+
+        with mock.patch.dict('os.environ', env, clear=True), mock.patch('aiohttp.ClientSession', Session):
+            return await camera_feed.base_url(request)
+
+    async def test_the_link_carries_the_port_the_supervisor_published(self):
+        info = {'result': 'ok', 'data': {'network': {'8098/tcp': 8099}}}
+        self.assertEqual(await self.base(info, {'SUPERVISOR_TOKEN': 't'}), 'http://192.168.1.5:8099')
+
+    async def test_8098_when_the_supervisor_says_nothing_usable(self):
+        for info in ({'data': {'network': {'8098/tcp': None}}}, {'data': {}}, ConnectionError('x')):
+            camera_feed.base_url.__defaults__[0].clear()
+            self.assertEqual(await self.base(info, {'SUPERVISOR_TOKEN': 't'}), 'http://192.168.1.5:8098')
+
+    async def test_docker_keeps_its_own_setting(self):
+        info = {'data': {'network': {'8098/tcp': 8099}}}
+        self.assertEqual(await self.base(info, {}), 'http://192.168.1.5:8098')
+        camera_feed.base_url.__defaults__[0].clear()
+        self.assertEqual(await self.base(info, {'SUPERVISOR_TOKEN': 't', 'SCREEN_CAMERA_PORT': '9000'}), 'http://192.168.1.5:9000')
+
 if __name__ == '__main__':
     unittest.main()
 
 
 class MapPictures(unittest.TestCase):
-    """A map tile is one more pictured tile (app 0.4.24, firmware 0.15.0): the add-on draws the whole frame and the
+    """A map tile is one more pictured tile (app 0.4.33, firmware 0.20.0): the add-on draws the whole frame and the
     firmware reuses `render_camera_card` unchanged, so no map layout arithmetic exists in C++."""
 
     def source_of(self, function):
@@ -1098,7 +1201,7 @@ class MapPictures(unittest.TestCase):
     def test_the_atlas_frame_only_shades_a_media_cover(self):
         # The atlas frame's last number blends the picture toward black in tile_art.encode (firmware 0.14.0):
         # a media cover wants that fade so its icon-shaped corners still read (170), a live camera is already
-        # full colour (0), and a map (app 0.4.24) must stay full colour too (0) -- its own bottom fade for the
+        # full colour (0), and a map (app 0.4.33) must stay full colour too (0) -- its own bottom fade for the
         # title comes separately from camera_feed.picture_modes when the overlay is on. `card_art(t)` is true
         # for a map as well as a cover, so it must not be what picks the shade here; only `t.cover_tile()` may.
         wanted = self.source_of('inline LiveWish live_wanted(')

@@ -110,7 +110,10 @@
       "home": "Accueil",
       "no_network": "Pas de réseau",
       "configuration_problem": "Problème de configuration.\nMettez à jour le module.",
-      "configuration_version": "Problème de configuration.\nVérifiez les versions de l’écran et du module."
+      "configuration_version": "Problème de configuration.\nVérifiez les versions de l’écran et du module.",
+      "wifi_problem": "Problème de connexion Wi-Fi",
+      "wifi_hotspot": "Connecte-toi au point d’accès {name} pour corriger cela.\nMot de passe : {password}",
+      "wifi_usb": "Vérifie le nom et le mot de passe du Wi-Fi, puis réinstalle cet écran par USB."
     },
     "preparing": {
       "default": "On range vos tuiles",
@@ -271,12 +274,6 @@
       "recording": "Enregistrement",
       "tap_to_view": "Touchez pour voir",
       "no_image_yet": "Pas d'image"
-    },
-    "map": {
-      "no_location": "Pas de position",
-      "away": "{n} absent | {n} absents",
-      "unavailable": "Indisponible",
-      "more": "+{n} autres"
     },
     "calibration": {
       "title": "Suivez l'étalonnage",
@@ -497,6 +494,12 @@
     },
     "navigation": {
       "back": "Retour"
+    },
+    "map": {
+      "no_location": "Pas de position",
+      "away": "{n} absent | {n} absents",
+      "unavailable": "Indisponible",
+      "more": "+{n} autres"
     }
   },
   "addon": {
@@ -531,7 +534,7 @@
         "page_titles": "Un écran a au maximum {n} page. | Un écran a au maximum {n} pages.",
         "tiles_max": "Choisissez au plus {n} tuile. | Choisissez au plus {n} tuiles.",
         "unsupported": "Cette entité n'est pas prise en charge.",
-        "once": "Une entité ne peut apparaître qu'une seule fois sur un écran.",
+        "once": "L'horloge de chevet ne peut être qu'une seule fois sur un écran.",
         "tile_name": "Un nom de tuile peut contenir au plus 80 octets.",
         "unknown_settings": "Réglages de tuile inconnus.",
         "navigation_size": "Une tuile de navigation est de taille normale ou double largeur.",
@@ -551,11 +554,11 @@
         "pages": "Un écran a {n} page. | Un écran a de 1 à {n} pages.",
         "eight_pages": "Ces tuiles ne tiennent pas sur les pages de cet écran ; retirez une tuile ou réduisez-en une.",
         "camera_unsupported": "Cet écran ne peut pas afficher d'images de caméra.",
-        "map_unsupported": "Cet écran ne peut pas afficher de carte.",
-        "map_entities": "Une carte affiche au plus 8 personnes ou traceurs, chacun une seule fois, et pas deux fois sa propre entité.",
         "firmware_first": "Pour ces tuiles, installez d'abord le firmware {version} ou plus récent sur l'écran.",
         "entity_gone": "Une entité choisie n'existe plus. Cherchez la nouvelle entité.",
-        "ids_too_long": "Ensemble, les ID d'entité de ces tuiles sont trop longs pour tenir dans un seul message à l'écran ; retirez quelques tuiles."
+        "ids_too_long": "Ensemble, les ID d'entité de ces tuiles sont trop longs pour tenir dans un seul message à l'écran ; retirez quelques tuiles.",
+        "map_entities": "Une carte affiche au plus 8 personnes ou traceurs, chacun une seule fois, et pas deux fois sa propre entité.",
+        "map_unsupported": "Cet écran ne peut pas afficher de carte."
       },
       "top_bar": {
         "invalid": "Barre supérieure non valide ; actualisez la page de gestion.",
@@ -583,6 +586,7 @@
         "not_for_a_screen": "{entity} ne peut pas aller sur un écran.",
         "not_on_screen": "{entity} n'est pas sur cet écran.",
         "add_it_first": "{entity} n'est pas sur cet écran ; ajoutez-la d'abord.",
+        "key_stays": "{entity} se trouve sous l'horloge de chevet ; déplacez-le là dans l'éditeur.",
         "not_on_spot": "{entity} n'est pas à l'emplacement {slot}.",
         "not_on_page": "{entity} n'est pas sur la page {page}.",
         "move_where": "Indiquez la page ou l'emplacement où la déplacer.",
@@ -600,6 +604,7 @@
         "column_range": "Choisissez une colonne entre 1 et {last} ; left et right désignent la première et la dernière.",
         "full_page_alone": "Une tuile pleine page occupe toute la page {page} ; rien d'autre n'y tient.",
         "does_not_fit": "Cela ne tient pas sur la page {page} ; une tuile double largeur occupe deux emplacements.",
+        "size": "Cet écran n’a pas de tuile de {size}. Tailles possibles : {sizes}.",
         "order_needed": "Indiquez les entités dans l'ordre voulu.",
         "order_not_on_screen": "Pas sur cet écran : {entities}.",
         "order_not_on_page": "Pas sur la page {page} : {entities}. Déplacez-les d'abord sur cette page.",
@@ -721,7 +726,7 @@
         "ambiguous_tile": "La source de l’événement de tuile est ambiguë ; précisez sa page",
         "save_first": "Enregistrez la disposition des pages avant ses paramètres",
         "destination_exists": "L’écran de destination possède déjà une disposition enregistrée",
-        "update_tall": "Mettez l’écran à jour pour utiliser des tuiles plus hautes",
+        "update_tall": "Mettez l’écran à jour pour utiliser ces tailles de tuiles",
         "memory": "L’écran ne dispose pas de suffisamment de mémoire libre pour cette disposition. Utilisez moins de tuiles."
       },
       "feedback": {
@@ -1242,7 +1247,6 @@
       },
       "search": "Rechercher",
       "screens": "Écrans",
-      "more": "Plus",
       "refresh": "Actualiser",
       "update": {
         "button": "Mettre à jour",
@@ -1250,7 +1254,8 @@
         "available": "Mise à jour {version}",
         "no_profile": "Aucun profil ESPHome trouvé avec ce nom d'appareil.",
         "whats_new": "Nouveautés",
-        "full_log": "Journal complet"
+        "full_log": "Journal complet",
+        "short": "Mise à jour"
       },
       "host": {
         "hint": "L'adresse IP, une seule fois ; le nouveau firmware la communique ensuite lui-même.",
@@ -1264,6 +1269,8 @@
         "not_flashed": "Pas encore dans Home Assistant. Firmware déjà installé ? Ajoutez l'appareil ESPHome dans Paramètres → Appareils et services, puis autorisez les actions Home Assistant sous Configurer. Pas encore installé ? Firmware et USB → {file}."
       },
       "copy_api_key": "Copier la clé API",
+      "files": "Télécharger les fichiers de l'écran",
+      "files_hint": "Le YAML ESPHome de l'écran avec ses clés, son Override YAML et un secrets.yaml avec le Wi-Fi, pour le compiler avec ESPHome sur votre ordinateur.",
       "details": {
         "room": "Pièce",
         "firmware": "Firmware",
@@ -1437,17 +1444,18 @@
         "alarm_control_panel": "Alarme",
         "lock": "Serrures"
       },
-      "more": "Plus ({n})",
-      "fewer": "Moins",
       "room": "Pièce",
-      "all_rooms": "Toutes les pièces",
       "hide_placed": "Masquer celles déjà placées",
       "hide_placed_title": "Masquer ce qui est déjà sur cet écran",
+      "again": "Déjà sur cet écran ; ajoutez-le encore pour une autre tuile",
       "all_placed": "Tout ce qui est ici est déjà sur cet écran.",
       "none_found": "Aucune entité trouvée. Essayez un autre nom, une autre pièce ou un autre filtre.",
       "full": "Cet écran peut contenir {n} tuile. | Cet écran peut contenir {n} tuiles.",
       "full_update": "Cet écran peut contenir {n} tuile ; mettez à jour son firmware pour en avoir 48. | Cet écran peut contenir {n} tuiles ; mettez à jour son firmware pour en avoir 48.",
-      "hint": "Faites glisser sur une page, ou appuyez sur + pour ajouter au premier emplacement libre. ⌘K recherche partout."
+      "hint": "Faites glisser sur une page, ou appuyez sur + pour ajouter au premier emplacement libre. ⌘K recherche partout.",
+      "resize": "Faites glisser pour redimensionner la bibliothèque",
+      "filter_label": "Filtrer par type",
+      "no_room": "Sans pièce"
     },
     "domains": {
       "light": "Lumière",
@@ -1528,16 +1536,16 @@
         "live_needs_firmware": "Une image en direct demande le firmware 0.2.77 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement.",
         "live_card_hint": "L'image remplit la tuile, rafraîchie au rythme ci-dessous tant que la page est affichée. Un appui l'ouvre toujours en plein écran.",
         "live_card_needs_firmware": "Une image qui remplit la tuile demande le firmware 0.3.7 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement. D'ici là, l'écran affiche une petite image à la place de l'icône.",
-        "map": "Carte",
-        "map_hint": "Une carte de l'endroit où se trouvent ces personnes. Le module complémentaire la dessine et envoie une image à l'écran, aucune position n'atteint donc jamais l'écran lui-même. L'entité de la tuile est une personne ; ajoutez un téléphone ou une voiture ci-dessous comme compagnon.",
-        "map_needs_firmware": "Une carte nécessite le firmware 0.15.0 ou plus récent : appuyez sur Mettre à jour sur l'écran après avoir enregistré.",
         "cover": "Pochette",
         "cover_hint": "La pochette de ce qui joue à la place de l'icône, comme la tuile de Home Assistant ; un lecteur sans image garde son icône. Un appui ouvre toujours la carte.",
         "cover_needs_firmware": "La pochette sur la tuile demande le firmware 0.2.78 ou plus récent : appuyez sur Mettre à jour sur l'écran après l'enregistrement.",
         "no_graph": "Home Assistant n'a pas de valeurs numériques pour cette entité : le graphique reste donc vide. Choisissez un autre affichage.",
         "no_forecast": "Ce service météo n'a pas de prévisions journalières dans Home Assistant. Choisissez un autre affichage.",
         "tall_cover_hint": "",
-        "face_needs_firmware": "Cette horloge demande le firmware 0.3.6 ou plus récent : appuyez sur Mettre à jour pour l'écran après l'enregistrement. D'ici là, l'écran affiche l'horloge numérique."
+        "face_needs_firmware": "Cette horloge demande le firmware 0.3.6 ou plus récent : appuyez sur Mettre à jour pour l'écran après l'enregistrement. D'ici là, l'écran affiche l'horloge numérique.",
+        "map": "Carte",
+        "map_hint": "Une carte de l'endroit où se trouvent ces personnes. Le module complémentaire la dessine et envoie une image à l'écran, aucune position n'atteint donc jamais l'écran lui-même. L'entité de la tuile est une personne ; ajoutez un téléphone ou une voiture ci-dessous comme compagnon.",
+        "map_needs_firmware": "Une carte nécessite le firmware 0.20.0 ou plus récent : appuyez sur Mettre à jour sur l'écran après avoir enregistré."
       },
       "refresh": {
         "label": "Rafraîchir",
@@ -1554,50 +1562,6 @@
           "name": "Nom",
           "none": "Rien"
         }
-      },
-      "map": {
-        "entities": "Sur la carte",
-        "add": "Ajouter une entité",
-        "own": "Cette tuile",
-        "remove": "Retirer",
-        "full": "Une carte affiche au plus 8 personnes ou traceurs.",
-        "zoom": {
-          "label": "Zoom",
-          "fit": "Tout afficher",
-          "17": "Rue",
-          "15": "Quartier",
-          "13": "Ville",
-          "11": "Région"
-        },
-        "labels": {
-          "label": "Étiquettes",
-          "names": "Noms",
-          "initials": "Initiales",
-          "nothing": "Rien"
-        },
-        "basemap": {
-          "label": "Fond de carte",
-          "auto": "Carte de Home Assistant",
-          "none": "Aucun",
-          "hint": "Carte de Home Assistant : le module complémentaire demande à Home Assistant les tuiles de la zone affichée, et Home Assistant les récupère d'OpenStreetMap et les met en cache. Seuls un niveau de zoom et deux nombres sont envoyés, jamais un nom ni une entité.",
-          "none_hint": "Aucun : rien ne quitte Home Assistant. La tuile affiche vos zones et les personnes sur un fond uni."
-        },
-        "privacy": "L'image circule en clair sur votre réseau, comme toute autre image, une tuile carte montre donc à peu près où se trouve quelqu'un à toute personne sur ce réseau. Aucune position, aucun jeton et aucune adresse de carte n'est jamais envoyé à un écran."
-      },
-      "size": {
-        "label": "Taille",
-        "single": "Normale",
-        "wide": "Double largeur",
-        "full": "Pleine page",
-        "full_hint": "Pleine page : un grand bouton dans la couleur de la tuile ; un curseur, des commandes ou un graphique se placent en bas.",
-        "needs_firmware": "Une tuile pleine page nécessite le firmware 0.2.62 : appuyez d'abord sur Mettre à jour pour cet écran.",
-        "tall": "1 × 2",
-        "square": "2 × 2",
-        "rectangle_hint": "Largeur × hauteur en cellules. Utilise le design actuel de la tuile."
-      },
-      "page": {
-        "label": "Page",
-        "new": "Nouvelle page"
       },
       "controls": {
         "label": "Commande directe sur la tuile",
@@ -1667,15 +1631,44 @@
         "rows": "Redimensionner la hauteur (flèches haut/bas)"
       },
       "sections": {
-        "text": "Texte",
         "look": "Apparence",
-        "place": "Taille et place",
         "controls": "Commandes",
         "style": "Icône et couleur"
       },
       "keys": {
         "hint": "Glissez une lampe, une température ou une serrure sur les emplacements ronds sous l'heure, ou touchez un emplacement et choisissez. Ce sont des tuiles : touchez-en une pour la régler.",
-        "under": "Sous l'horloge de chevet : une tuile sous sa forme ronde. Un appui fait ce qu'il fait sur une tuile, et un appui long ouvre sa carte."
+        "under": "Sous l'horloge de chevet : une tuile sous sa forme ronde. Un appui fait ce qu'il fait sur une tuile, et un appui long ouvre sa carte.",
+        "name_shown": "Nom sous la touche",
+        "name_shown_hint": "Désactivé, seul le cercle reste."
+      },
+      "map": {
+        "entities": "Sur la carte",
+        "add": "Ajouter une entité",
+        "own": "Cette tuile",
+        "remove": "Retirer",
+        "full": "Une carte affiche au plus 8 personnes ou traceurs.",
+        "zoom": {
+          "label": "Zoom",
+          "fit": "Tout afficher",
+          "17": "Rue",
+          "15": "Quartier",
+          "13": "Ville",
+          "11": "Région"
+        },
+        "labels": {
+          "label": "Étiquettes",
+          "names": "Noms",
+          "initials": "Initiales",
+          "nothing": "Rien"
+        },
+        "basemap": {
+          "label": "Fond de carte",
+          "auto": "Carte de Home Assistant",
+          "none": "Aucun",
+          "hint": "Carte de Home Assistant : le module complémentaire demande à Home Assistant les tuiles de la zone affichée, et Home Assistant les récupère d'OpenStreetMap et les met en cache. Seuls un niveau de zoom et deux nombres sont envoyés, jamais un nom ni une entité.",
+          "none_hint": "Aucun : rien ne quitte Home Assistant. La tuile affiche vos zones et les personnes sur un fond uni."
+        },
+        "privacy": "L'image circule en clair sur votre réseau, comme toute autre image, une tuile carte montre donc à peu près où se trouve quelqu'un à toute personne sur ce réseau. Aucune position, aucun jeton et aucune adresse de carte n'est jamais envoyé à un écran."
       }
     },
     "tile_card": {
@@ -1732,6 +1725,7 @@
       "name_placeholder": "Par exemple : Salon",
       "screen_name": "Titre de l'écran",
       "screen_name_hint": "Chaque page sans titre propre affiche celui-ci.",
+      "no_title_hint": "Laissez vide pour n'afficher que le logo.",
       "right": "Droite : heure, capteurs ou horloge",
       "item_label": "{name}, emplacement {slot}. Enter : configurer, flèches : déplacer",
       "remove_named": "Retirer {name} de la barre supérieure",
@@ -1937,14 +1931,12 @@
     },
     "installer": {
       "title": {
-        "setup": "Connecter et installer.",
         "saved": "Profil enregistré.",
         "running": "Un instant…",
         "ready": "Prêt à télécharger.",
         "done": "Terminé.",
         "failed": "Cela n'a pas fonctionné."
       },
-      "intro": "Tessera crée le profil propre à l'écran, avec des clés uniques, et compile le firmware. Branchez l'écran avec un câble USB de données sur la machine qui fait tourner Home Assistant, ou sur l'ordinateur que vous utilisez maintenant.",
       "board": "Quel écran avez-vous ?",
       "board_title": "{name} · {inch} pouces",
       "status": {
@@ -1965,10 +1957,12 @@
         "calibration": "Étalonnage tactile au premier démarrage"
       },
       "choice": {
-        "DISPLAY_MODEL": "Contrôleur d'affichage"
+        "DISPLAY_MODEL": "Contrôleur d'affichage",
+        "GRID_ROWS": "Tuiles par page"
       },
       "choice_hint": {
-        "DISPLAY_MODEL": "La plupart de ces cartes ont le premier. Prenez l'autre si l'écran affiche du bruit ou une image brouillée."
+        "DISPLAY_MODEL": "La plupart de ces cartes ont le premier. Prenez l'autre si l'écran affiche du bruit ou une image brouillée.",
+        "GRID_ROWS": "Quatre rangées placent huit tuiles plus petites sur une page, pour un écran avec beaucoup d’interrupteurs. Trois rangées gardent les tuiles plus grandes et plus lisibles."
       },
       "choice_usual": "la plupart",
       "orientation": "Dans quel sens sera-t-il accroché ?",
@@ -1979,7 +1973,6 @@
       "name": "Nom",
       "name_placeholder": "Écran du salon",
       "device_name": "Nom de l'appareil",
-      "customize": "personnaliser",
       "name_hint": "Chaque écran reçoit son propre profil avec ses propres clés. Quatre écrans ? Refaites ces étapes quatre fois avec un nom différent.",
       "name_taken": "Un autre écran s'appelle déjà ainsi. Home Assistant numéroterait les noms d'entités de celui-ci et les automatisations viseraient le mauvais écran.",
       "device_name_hint": "Lettres minuscules, chiffres et tirets. Un nom différent pour chaque écran.",
@@ -1991,12 +1984,13 @@
         "new": "À remplir une seule fois : Tessera l'enregistre dans le secrets.yaml d'ESPHome, et les écrans suivants l'utilisent automatiquement.",
         "missing": "Il manque encore les informations Wi-Fi dans votre secrets.yaml d'ESPHome. Tessera ne remplit que les lignes manquantes.",
         "ready": "Le Wi-Fi vient de votre secrets.yaml d'ESPHome.",
-        "invalid": "Le secrets.yaml du dossier ESPHome n'est pas un YAML valide. Corrigez d'abord le fichier ; il ne sera pas écrasé."
+        "invalid": "Le secrets.yaml du dossier ESPHome n'est pas un YAML valide. Corrigez d'abord le fichier ; il ne sera pas écrasé.",
+        "other": "Autre réseau",
+        "other_note": "Chaque écran est compilé avec ce Wi-Fi ; les écrans existants le prennent à leur prochaine mise à jour."
       },
       "install_via": "Installer via",
-      "later": "Plus tard · enregistrer seulement le profil",
       "target": {
-        "usb": "Branchez l'écran avec un câble USB de données sur la machine Home Assistant ; la liste s'actualise d'elle-même. Ou choisissez Cet ordinateur pour installer depuis ce navigateur.",
+        "usb": "Branchez l'écran avec un câble USB de données sur la machine Home Assistant ; il apparaît ici tout seul. Il est branché sur l'ordinateur que vous utilisez ? Choisissez Depuis cet ordinateur.",
         "download": "Téléchargez le firmware et installez-le sur l'écran depuis votre propre ordinateur, dans Chrome ou Edge. Ensuite, les mises à jour passent par le Wi-Fi.",
         "later": "Le profil va dans le dossier ESPHome. Vous pourrez l'installer plus tard via Firmware et USB, ou depuis ESPHome Device Builder.",
         "several": "Plusieurs écrans sont branchés : choisissez le port de cet écran.",
@@ -2046,12 +2040,75 @@
         "tiles": "{bold} De retour dans Tessera, l'écran apparaît dans la liste à gauche en une trentaine de secondes ; d'ici là, il y figure comme « pas encore dans Home Assistant ».",
         "tiles_bold": "Choisissez vos tuiles."
       },
-      "log": "Journal ESPHome",
       "retry": "Réessayer",
       "another": "Installer un autre écran",
       "start_over": "Recommencer",
       "done": "Terminé",
-      "key_more": "Afficher la clé API"
+      "key_more": "Afficher la clé API",
+      "steps": {
+        "board": "Écran",
+        "setup": "Configurer",
+        "install": "Installer"
+      },
+      "pick_title": "Quel écran as-tu ?",
+      "pick_intro": "Choisis ta carte. Cherche par marque, taille ou ce qui est imprimé dessus.",
+      "search": "Chercher par marque, taille ou modèle",
+      "sizes": {
+        "all": "Tous",
+        "small": "Jusqu’à 4 pouces",
+        "medium": "4 à 6 pouces",
+        "large": "7 pouces et plus"
+      },
+      "none_found": "Aucun écran ne correspond à « {query} ».",
+      "try_virtual": "Pas encore d’écran ? Essaie un écran d’aperçu",
+      "setup_title": "Personnalise-le",
+      "install_title": "Comment veux-tu l’installer ?",
+      "next": "Suivant",
+      "advanced": "Avancé",
+      "ways": {
+        "ha_title": "USB sur Home Assistant",
+        "ha_found": "Trouvé : {port}",
+        "ha_waiting": "Branche l’écran sur la machine où tourne Home Assistant",
+        "browser_title": "Depuis cet ordinateur",
+        "browser_detail": "Chrome ou Edge, avec l’écran sur l’USB de cet ordinateur",
+        "download_title": "Télécharger le fichier",
+        "download_detail": "L’installer toi-même avec ESPHome Web",
+        "later_title": "Plus tard",
+        "later_detail": "Garder seulement les réglages"
+      },
+      "steps_done": {
+        "prepare": "Préparation",
+        "build": "Compilation du firmware",
+        "write": "Écriture sur l’écran",
+        "restart": "Démarrage",
+        "done": "Terminé",
+        "download": "Prêt à télécharger"
+      },
+      "elapsed": "{time} écoulé",
+      "show_log": "Afficher les détails",
+      "hide_log": "Masquer les détails",
+      "next_title": "Et ensuite",
+      "model": "Quel modèle est-ce ?",
+      "model_hint": "Imprimé au dos de la carte. Ils se ressemblent, mais chacun a besoin de son propre firmware.",
+      "models": "{n} modèle | {n} modèles",
+      "arrive": {
+        "waiting": "En attente de {name} sur ton Wi-Fi...",
+        "seen": "{name} est sur ton Wi-Fi. Associe-le maintenant dans Home Assistant.",
+        "paired": "{name} est associé à Home Assistant.",
+        "missing": "{name} n’est pas encore sur ton Wi-Fi",
+        "hotspot": "Regarde l’écran : il indique un point d’accès et son mot de passe. Connecte-y ton téléphone et choisis le bon Wi-Fi. Ou indique ici le bon Wi-Fi et réinstalle.",
+        "no_hotspot": "Le nom ou le mot de passe du Wi-Fi est probablement faux. Indique ici le bon Wi-Fi et réinstalle, l’écran toujours branché au câble.",
+        "change": "Changer le Wi-Fi et réinstaller"
+      },
+      "choice_option": {
+        "GRID_ROWS": {
+          "3": "3 rangées",
+          "4": "4 rangées, tuiles plus petites"
+        }
+      },
+      "choice_first": {
+        "GRID_ROWS": "la taille habituelle"
+      }
     },
     "alerts": {
       "eyebrow": "Alertes · aide-mémoire",
@@ -2466,7 +2523,15 @@
       "saved": "Enregistré dans ce navigateur",
       "hint": "Le firmware de l’écran lui-même, dessiné à partir de la disposition que vous modifiez. Appuyez, maintenez et balayez comme sur l’écran. Rien n’est enregistré.",
       "control": "Les appuis commandent les appareils",
-      "control_hint": "Activé : un appui sur une tuile exécute son action dans Home Assistant, comme sur l’écran. Désactivé : l’aperçu montre seulement ce que fait un appui."
+      "control_hint": "Activé : un appui sur une tuile exécute son action dans Home Assistant, comme sur l’écran. Désactivé : l’aperçu montre seulement ce que fait un appui.",
+      "skipped": "L’écran d’aperçu {names} n’a pas pu être chargé et a été ignoré."
+    },
+    "inspector": {
+      "kind": {
+        "tile": "Tuile",
+        "page": "Page",
+        "bar": "Barre supérieure"
+      }
     }
   }
 }

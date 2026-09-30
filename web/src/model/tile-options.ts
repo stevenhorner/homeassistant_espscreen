@@ -6,6 +6,7 @@
  * the same card check the save runs (validateCardOptions). Both ask here, so a choice that shows is a choice that saves.
  */
 import rules from "./page-rules.json";
+import { isTallSize, isWideSize } from "./sizes";
 import { validateCardOptions } from "./page-validation";
 import type { PageTile, Tile, TileOptions } from "../types";
 
@@ -13,9 +14,8 @@ const APPEARANCE = { display: "display", icon: "icon", background: "background",
   mapEntities: "map", mapZoom: "zoom", mapLabels: "labels", basemap: "basemap" } as const;
 const INTERACTION = ["tap", "inline", "controls", "action"] as const;
 const PICTURE_OWN = ["refresh", ...Object.keys(rules.picture)];
-// What only a map card keeps; `overlay` is shared with the live picture, so it is not in here (app 0.4.24).
+// What only a map card keeps; `overlay` is shared with the live picture, so it is not in here (app 0.4.33).
 const MAP_OWN = ["map", "zoom", "labels", "basemap"];
-const TALLER = ["tall", "square"];
 // What a choice that asks a second step stands for while the inspector tries it: Perform action asks which action,
 // a value of the entity which value, words of your own the words. The step itself is checked when it is taken.
 const SAMPLE_ACTION = { action: "homeassistant.turn_on" };
@@ -26,7 +26,7 @@ export const DEFAULTS: Record<string, unknown> = { sub: "auto", fit: rules.pictu
 const pageTile = (entity: string) => /^screen\.page_\d+$/.test(entity);
 
 /** Mirrors core.validate_layout's normalization, so the document the editor saves is already canonical. */
-export function canonicalOptions(entity: string, options: TileOptions = {}): TileOptions {
+export function canonicalOptions(entity: string, options: TileOptions = {}, key = false): TileOptions {
   const out: TileOptions = { ...options };
   if (typeof out.sub === "string" && out.sub.startsWith("text:")) {
     const words = out.sub.slice(5).trim();
@@ -37,14 +37,15 @@ export function canonicalOptions(entity: string, options: TileOptions = {}): Til
   if (out.tap !== "action") delete out.action;
   // A live picture's pace and fill belong to the live picture, and their defaults are not stored. A map keeps the
   // name on its picture but never a pace or a fill: it is drawn at its frame's size, and only when something moved.
-  if (out.display !== "live") for (const key of PICTURE_OWN) if (key !== "overlay" || out.display !== "map") delete out[key];
-  if (out.display !== "map") for (const key of MAP_OWN) delete out[key];
+  // A bedside clock's key keeps whether its name shows (`overlay`, firmware 0.17.0), as a picture does.
+  if (out.display !== "live") for (const field of PICTURE_OWN) if (!(field === "overlay" && (key || out.display === "map"))) delete out[field];
+  if (out.display !== "map") for (const field of MAP_OWN) delete out[field];
   // An empty companion list is no list, as the add-on stores it (core.validate_layout).
   if (Array.isArray(out.map) && !out.map.length) delete out.map;
   for (const [key, value] of Object.entries(DEFAULTS)) if (out[key] === value) delete out[key];
   // A Go to page tile has a name, an icon, a colour and a width, nothing else.
   if (pageTile(entity)) for (const key of ["display", "inline", "controls", "history_hours"]) delete out[key];
-  if (rules.wideOnly.includes(String(out.display)) && !["wide", "square", "full"].includes(String(out.size ?? "single"))) out.size = "wide";
+  if (rules.wideOnly.includes(String(out.display)) && !isWideSize(out.size ?? "single")) out.size = "wide";
   return out;
 }
 
@@ -55,7 +56,7 @@ export function coupledOptions(options: TileOptions = {}, key: string, value: un
   const size = String(out.size ?? "single");
   if (key === "display" && value === "watch") { out.inline = "none"; if (controlled) out.controls = "none"; }
   if (key === "inline" && value === "slider") { out.display = "standard"; if (controlled) out.controls = "none"; }
-  if (key === "controls" && value === "none" && TALLER.includes(size)) out.inline = "none";
+  if (key === "controls" && value === "none" && isTallSize(size)) out.inline = "none";
   if (key === "controls" && value !== "none") { if (out.display !== "cover") out.display = "standard"; out.inline = "none"; }
   // A map card is the whole tile: it has no mini slider and no direct controls, so choosing it clears both.
   if (key === "display" && value === "map") { delete out.inline; delete out.controls; }
@@ -90,7 +91,7 @@ export function optionsSave(tile: Tile, options: TileOptions): boolean {
  * choice is still there (a default the add-on drops counts as there). A choice with a second step is tried with a
  * sample of that step. */
 export function choiceOffered(tile: Tile, key: string, value: unknown, controlled: boolean): boolean {
-  let options = canonicalOptions(tile.entity, coupledOptions(tile.options, key, value, controlled));
+  let options = canonicalOptions(tile.entity, coupledOptions(tile.options, key, value, controlled), tile.in !== undefined);
   if (key === "tap" && value === "action" && !options.action) options = { ...options, action: tile.options?.action ?? SAMPLE_ACTION };
   if (!optionsSave(tile, options)) return false;
   const kept = options[key];

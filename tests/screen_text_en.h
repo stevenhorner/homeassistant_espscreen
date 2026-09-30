@@ -3,7 +3,7 @@
 #pragma once
 #include "components/smart_display/screen_text.h"
 
-static_assert(screen_text::KEYS_HASH == 0x1F92D1DBu && screen_text::KEY_COUNT == 392,
+static_assert(screen_text::KEYS_HASH == 0x0A4BC091u && screen_text::KEY_COUNT == 395,
               "screen_text_keys.h does not match screen_manager/translations/en.json: run tools/i18n.py header");
 const char *const screen_text::TABLE[] = {
     ".",
@@ -90,6 +90,9 @@ const char *const screen_text::TABLE[] = {
     "No network",
     "Configuration problem.\012Update add-on.",
     "Configuration problem.\012Check screen and add-on versions.",
+    "Wi-Fi connection problem",
+    "Connect to hotspot {name} to fix this.\012Password: {password}",
+    "Check the Wi-Fi name and password, then install this screen again over USB.",
     "Arranging your tiles",
     "Peeking at your lights",
     "Dusting off the album covers",
@@ -218,10 +221,6 @@ const char *const screen_text::TABLE[] = {
     "Recording",
     "Tap to view",
     "No image yet",
-    "No location",
-    "1 away | {n} away",
-    "Unavailable",
-    "+{n} more",
     "Follow the calibration wizard",
     "GT911 touch check",
     "Hold each tap for a moment",
@@ -397,7 +396,11 @@ const char *const screen_text::TABLE[] = {
     "Open",
     "Open door",
     "Really open?",
-    "Back"
+    "Back",
+    "No location",
+    "1 away | {n} away",
+    "Unavailable",
+    "+{n} more"
 };
 const char *const screen_text::LANGUAGE = "en";
 int screen_text::plural_index(int n) { return n == 1 ? 0 : 1; }

@@ -3,7 +3,7 @@ with Home Assistant's keys and code dialog. tests/test_lock_panel.cpp checks the
 components/smart_display/lock_panel.h; these keep the app, the firmware and the editor in step with each other and with
 Home Assistant (its 2026.9 core and frontend), and hold the rules that keep a code private.
 """
-from firmware_sources import runtime_source
+from firmware_sources import firmware_domains, runtime_source
 import json
 import sys
 import unittest
@@ -32,7 +32,7 @@ class TheApp(unittest.TestCase):
         self.assertIn('lock', core.DOMAINS)
         self.assertNotIn('lock', core.HEADER_ONLY_DOMAINS)
         self.assertTrue(core.entity_id('lock.front_door'))
-        self.assertIn('"alarm_control_panel", "lock"})', MODEL)
+        self.assertIn('lock', firmware_domains())
         core.validate_header({'items': [{'type': 'entity', 'entity': 'lock.front_door'}]})
 
     def test_the_app_sends_whether_a_default_code_exists_never_the_code(self):
@@ -67,9 +67,10 @@ class TheApp(unittest.TestCase):
         for bad in (layout('lock.front', 'never'), layout('light.a', 'lock_only')):
             with self.assertRaises(ValueError):
                 core.validate_layout(bad)
-        # The page document carries it as an interaction, and the editor validates the same two choices.
+        # The page document carries it as an interaction, and the editor validates the same two choices (the catalogue's).
         self.assertEqual(page_layout.INTERACTION['guard'], 'guard')
-        self.assertIn("[i.guard, domain === 'lock' ? ['confirm', 'lock_only'] : []]", VALIDATION)
+        self.assertEqual(list(core.LOCK_GUARDS), ['confirm', 'lock_only'])
+        self.assertIn('[i.guard, ofType(domain)?.guards ?? []]', VALIDATION)
         self.assertIn('tile.guard = string(options["guard"], 16); if (tile.guard.empty()) tile.guard="confirm";', RECEIVER)
 
     def test_a_layout_with_a_lock_waits_for_its_firmware_and_the_newest_gate_wins(self):
@@ -108,8 +109,24 @@ class TheFirmware(unittest.TestCase):
         do = lock.split('inline void lock_do(', 1)[1].split('\n}\n', 1)[0]
         # A code comes first; then an action that confirms waits for the second tap before anything is sent.
         self.assertLess(do.index('needs_code('), do.index('if(confirms(act)){'))
-        self.assertLess(do.index('if(!lock_ask.confirm.press(act,now)){'), do.index('action(service(act),t.entity);'))
+        self.assertLess(do.index('const bool second=c.press(act,now);'), do.index('if(!second){'))
+        self.assertLess(do.index('if(!second){'), do.index('action(service(act),t.entity);'))
+        # The wait belongs to the tile (firmware 0.16.0+): a first tap ends every other tile's, so a second tap on another
+        # tile of the same lock is a first tap there and never unlocks.
+        self.assertLess(do.index('lock_end_asks(index);'), do.index('const bool second=c.press(act,now);'))
+        self.assertIn('int8_t ask_act = -1;', MODEL)
         self.assertIn('inline bool confirms(Act a) { return a == UNLOCK || a == OPEN; }', PANEL)
+
+    def test_a_heartbeat_travels_with_its_card(self):
+        # A kept page's cards leave the glass and come back by swapping places (keep_page). The heartbeat of a lock or an
+        # alarm panel belongs to the card, so a card whose lock settled while it was away does not keep beating (firmware
+        # 0.16.0; a lock on several pages showed it).
+        self.assertIn('uint8_t alarm_look=0; uint32_t alarm_mark=0;', TILES)
+        self.assertNotIn('alarm_tile_looks', TILES)
+        self.assertNotIn('alarm_tile_marks', TILES)
+        look = TILES.split('inline void alarm_tile_look(', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('if(want==w.alarm_look)return;', look)
+        self.assertIn('std::swap(widgets[i], (*set)[i]);', TILES)
 
 
 if __name__ == '__main__':

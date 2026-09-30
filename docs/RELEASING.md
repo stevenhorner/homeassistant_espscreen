@@ -30,14 +30,18 @@
    Python tests with aiohttp, PyYAML, Pillow and fontTools installed, every `tests/*.cpp` with
    `clang++ -std=c++17 -Wall -Wextra -Werror -I.`, `tools/check_packages.py`, `tools/generate_icons.py --check`, and the editor's
    `npm ci`, `npm test`, `npm run check` and `npm run build`, and fails when that fresh build differs from the
-   `screen_manager/app/static` in Git (committed or staged). For a firmware change, `tools/check.sh --firmware`
-   compiles every board profile with placeholder secrets from a temporary folder (never the real `secrets.yaml`) and
-   applies the flash budget below; `--all` does both. A change that reaches one board or a few builds only those:
-   `--firmware --affected` (the boards `tools/affected_boards.py` finds) or `--firmware --board <key>`
-   (docs/BOARD_RELEASES.md). `tools/check.sh --render` builds every board as a program for
+   `screen_manager/app/static` in Git (committed or staged). For a firmware change, `tools/check.sh --firmware --affected`
+   compiles the boards the change reaches with placeholder secrets from a temporary folder (never the real
+   `secrets.yaml`) and applies the flash budget below. A change that reaches one board or a few builds only those
+   (docs/BOARD_RELEASES.md); one that reaches every board builds the sample of four boards in `tools/profiles.py`
+   `SAMPLE` (the CYD and the Guition always, and two that differ in chip, flash layout or glass): with the list of
+   boards growing, a full build of every board is kept for when a change needs it (`--firmware` alone, or
+   `--affected --every-board`). `--sample` builds the sample directly. `tools/check.sh --render` builds every board as a program for
    this computer (tools/render/run.py, needs SDL2): its self test must pass lying down and standing up, and it saves
    what every board draws under `.esphome/render/out`. Run it by hand when a change reaches what a screen draws; CI does
-   not run it (a run took up to four hours, and the next push nearly always cancelled it).
+   not run it (a run took up to four hours, and the next push nearly always cancelled it). What the renders were mostly
+   for, whether cards fit, is checked on every run without drawing: tests/test_layout_audit.py lays out every card
+   kind, size and board through the firmware preview and checks where every object and text ended up.
    **Firmware preview.** The editor's preview is the shared firmware compiled to WebAssembly (web/wasm/README.md), and
    `tools/check.sh` fails when it is older than the firmware sources, which every firmware number bump makes it. Push a
    firmware change to its own branch first: `.github/workflows/preview.yml` rebuilds the preview there and commits it
@@ -1777,7 +1781,7 @@ Firmware only: storage version, tile protocol, preferences and keys are unchange
   (`tools/generate_cells.py`); the theme's `obj: pressed: bg_opa: 45%` in `packages/core.yaml`
   stays for everything else. `theme::pressed()` is new in `theme.h`.
 
-### Compatibility 0.4.24 / firmware 0.15.0
+### Compatibility 0.4.33 / firmware 0.20.0
 
 A map card on a person tile ([docs/MAP.md](MAP.md)). Storage version, preferences and keys are
 unchanged: `pages-v2` keeps its shape, so `layout_migrations.py` needs no change, and `DOMAINS`,
@@ -1785,13 +1789,13 @@ unchanged: `pages-v2` keeps its shape, so `layout_migrations.py` needs no change
 
 | Change | Kind | Older firmware | Older add-on |
 | --- | --- | --- | --- |
-| `display: "map"` | A new value of an existing option | Never sent: `min_firmware` holds the layout back at 0.15.0 and the editor says to update first | Refuses it as an unknown display, which is the behaviour it always had |
+| `display: "map"` | A new value of an existing option | Never sent: `min_firmware` holds the layout back at 0.20.0 and the editor says to update first | Refuses it as an unknown display, which is the behaviour it always had |
 | `mapEntities`, `mapZoom`, `mapLabels`, `basemap` | New page-document appearance fields, stripped before the wire | Not applicable: they never travel | Refuses the document; storage stays `pages-v2`, so a rollback needs the usual data backup |
 | `x.mk` | A new key in the tile's existing extras block | Ignored, like every unknown extra | Not sent |
 | `dark` on `esphome.screen_camera` | A new field on an existing event | Not sent; the add-on then draws the light look | Ignored: `live_request` reads only the keys it knows |
 
 - **No hello capability is added.** The gate is the firmware version, as it is for live pictures and
-  album covers: `core.MAP_MIN_FIRMWARE` is `(0, 15, 0)` and names a shared `X.Y.0`.
+  album covers: `core.MAP_MIN_FIRMWARE` is `(0, 20, 0)` and names a shared `X.Y.0`.
 - **`LiveWish` gains `dark`**, so `live_key` (the name the picture store keeps a picture under)
   carries the look. A map drawn for the light look is never adopted for the dark one. The tile's
   ground already changes with the look, but not for a picture that came back smaller than its frame,

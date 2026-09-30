@@ -1,4 +1,4 @@
-"""The basemap of a map card, through Home Assistant's own tile proxy (app 0.4.24).
+"""The basemap of a map card, through Home Assistant's own tile proxy (app 0.4.33).
 
 Home Assistant Core carries a `map_tiles` integration: a websocket command that hands its frontend a short-lived
 token, and `/api/map_tiles/raster/{z}/{x}/{y}.png` that fetches OpenStreetMap tiles with Home Assistant's own

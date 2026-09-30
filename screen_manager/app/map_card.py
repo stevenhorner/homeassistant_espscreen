@@ -1,4 +1,4 @@
-"""The map card: where the people a screen follows are, drawn in the add-on (app 0.4.24, firmware 0.15.0).
+"""The map card: where the people a screen follows are, drawn in the add-on (app 0.4.33, firmware 0.20.0).
 
 A map tile is a pictured tile, like a live camera: the add-on draws the whole frame and the screen only places the
 bitmap (components/smart_display/runtime_tiles.h, render_camera_card). So every bit of map arithmetic is here, and

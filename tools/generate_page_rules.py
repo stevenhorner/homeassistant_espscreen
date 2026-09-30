@@ -20,7 +20,7 @@ def rules():
             'controls': {domain: [key for key, _ in values] for domain, values in CONTROLS.items()},
             'backgrounds': list(TILE_BACKGROUNDS), 'refresh': list(LIVE_REFRESH),
             'picture': {key: list(values) for key, values in PICTURE_OPTIONS.items()},
-            # A map card (app 0.4.24): who may ride along, how many, and how it is drawn.
+            # A map card (app 0.4.33): who may ride along, how many, and how it is drawn.
             'map': {'domains': sorted(MAP_DOMAINS), 'max': MAP_MAX_ENTITIES, 'zoom': list(MAP_ZOOMS),
                     'labels': list(MAP_LABELS), 'basemap': list(MAP_BASEMAPS)},
             'icons': sorted(ICONS),

@@ -41,9 +41,16 @@ for a new panel from the nearest real board; its sizes come from the look (docs/
 
 Since firmware 0.14.0 the page keeps one margin all round. The top bar keeps `GRID_MARGIN` from the sides of the
 glass and from its top edge (measured to the home key, the bar's tallest ink), the cards keep it from the sides, and
-the page keys put the ink of their chevrons on it (`runtime_tiles::nav_align`). The tiles start one row gap under
-the home key, so `SCROLL_Y` is `GRID_MARGIN` + the key's height + `GRID_GAP_Y`, and the page bar is the look's
-own height but never more than 7 mm, the least a finger needs (`ui::touch_min`).
+the page keys put the ink of their chevrons on it (`runtime_tiles::nav_align`). The page bar is the look's own
+height but never more than 7 mm, the least a finger needs (`ui::touch_min`).
+
+Since firmware 0.15.0 (GitHub #90) everything in the top bar shares the home key's middle line: the page's name by
+its capitals, the items on the right by their digits, and their icons and the analog dial by their own middle, all
+measured from the fonts on the screen (`page_header::Renderer`). The bar's band (`BAR_BAND`) is the key, or the name
+centred on it with the tails of g, p, y and commas below, whichever reaches lower; it follows from the font sizes,
+so it does not change from one page name or language to the next. The tiles start `BAR_SPACE` below that band: one
+row gap, but never less than 1.5 mm. `SCROLL_Y` is `GRID_MARGIN` + `BAR_BAND` + `BAR_SPACE`, and the screen's self
+test fails a page where the tail of a g in the name would reach the tile area.
 
 The margin and the gaps keep their size in millimetres on every glass, but never take more pixels than the look
 gives them at its own density (16, 12 and 12 in the standard look, 9, 8 and 4 in the compact one). A denser glass
@@ -72,9 +79,10 @@ show: a CYD six, a 4 x 4 board sixteen. `tools/check.sh` fails when a file is ou
   and the Guition the scale is exactly 100.
 - `ui::large()`: the class of cards and pages is the look's, never a cell's momentary height. (A class
   that flipped when the rows grew reused a clock's numeral labels as tick lines: the lab's crash.)
-- `GRID_COLS`/`GRID_ROWS` reach the C++ as build flags; `SLOTS_PER_PAGE` follows, `MAX_PAGES` is
-  capped so a screen never holds more than 64 tiles (one dirty bit each: seven pages of nine, four of
-  sixteen), and `runtime_tiles::widgets` holds exactly one entry per cell. The add-on (`core.Grid`) and
+- `GRID_COLS`/`GRID_ROWS` reach the C++ as build flags; `SLOTS_PER_PAGE` follows. Every grid has eight pages
+  (firmware 0.18.0+) and a screen never holds more than 64 tiles over them (one dirty bit each), so a page need not
+  be full; before, the pages were capped at as many as 64 tiles fill (seven of nine, four of sixteen), and a grid
+  that grew lost the pages of a saved layout. `runtime_tiles::widgets` holds exactly one entry per cell. The add-on (`core.Grid`) and
   the editor (`setGrid`) count with the same rule, so a page, a slot and a tile limit mean the same in
   all three.
 - A card's head (the icon circle, the name and the state beside it) is one computed row on every board

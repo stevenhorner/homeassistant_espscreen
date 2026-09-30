@@ -1,4 +1,5 @@
 #pragma once
+#include "tile_catalogue.h"
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -50,7 +51,9 @@ namespace runtime_tiles {
 constexpr size_t TILES_MAX = 64;
 // The keys under a bedside clock's time (firmware 0.8.0+).
 constexpr unsigned BEDSIDE_KEYS = 3;
-// Explicit grid positions (0.2.26+) address at most eight pages.
+// Explicit grid positions (0.2.26+) address at most eight pages. Every grid has all eight (firmware 0.18.0+): a page
+// need not be full, so the pages no longer follow from the cells, only the tiles of the whole screen (TILES_MAX) do.
+// Before, a grid had 64 / cells pages, three on a 5 x 4 grid, and a grid that grew lost the pages of a saved layout.
 constexpr size_t PAGES_MAX = 8;
 // The bigger of the two grids: what the cards, the page's own arrays and the grid descriptors are sized for. A
 // CYD carries six cards and shows four of them standing up; nothing is allocated twice.
@@ -67,6 +70,9 @@ constexpr size_t dim_max(size_t a, size_t b, size_t c, size_t d) {
 constexpr size_t DIM_MAX = dim_max(GRID_COLS, GRID_ROWS, GRID_COLS_PORTRAIT, GRID_ROWS_PORTRAIT);
 static_assert(GRID_COLS >= 1 && GRID_ROWS >= 1 && GRID_COLS_PORTRAIT >= 1 && GRID_ROWS_PORTRAIT >= 1, "a grid needs a cell");
 static_assert(CELLS_MAX <= TILES_MAX, "a page holds at most as many cells as a screen holds tiles");
+// A slot (page * cells + cell) is kept in 16 bits (Model::slots): eight pages of a big grid pass 256, 512 on the
+// preview's eight by eight. Within its page (Placement) a cell still fits a byte.
+static_assert(PAGES_MAX * CELLS_MAX <= 65536, "every slot of every page fits in Model::slots");
 
 // The cells of one page, and everything that follows from them. ESP Screens counts with the same object
 // (screen_manager/app/core.py, class Grid), method for method, so a slot number means the same thing on both
@@ -75,9 +81,9 @@ struct Grid {
   size_t columns = GRID_COLS;
   size_t rows = GRID_ROWS;
   constexpr size_t slots() const { return columns * rows; }
-  constexpr size_t pages() const { return TILES_MAX / slots() < PAGES_MAX ? TILES_MAX / slots() : PAGES_MAX; }
+  constexpr size_t pages() const { return PAGES_MAX; }
   constexpr size_t max_slots() const { return pages() * slots(); }
-  constexpr size_t max_tiles() const { return max_slots(); }
+  constexpr size_t max_tiles() const { return max_slots() < TILES_MAX ? max_slots() : TILES_MAX; }
   // A wide card takes the cell beside it, or the only cell there is on a single-column screen.
   constexpr size_t wide_span() const { return columns > 1 ? 2 : 1; }
   // Whether a wide card started here would still stand in the row it starts in.
@@ -114,7 +120,8 @@ inline bool valid_entity(const std::string &entity) {
     if (entity == "screen.clock" || entity == "screen.settings" || entity == "screen.nightstand") return true;
     return page_entity(entity) && entity[12] >= '1' && entity[12] <= static_cast<char>('0' + grid.pages());
   }
-  for (const auto *allowed : {"light", "switch", "input_boolean", "scene", "script", "climate", "vacuum", "fan", "cover", "sensor", "binary_sensor", "input_select", "select", "number", "input_number", "weather", "media_player", "button", "input_button", "automation", "sun", "timer", "person", "camera", "image", "alarm_control_panel", "lock"})
+  // The types the tile catalogue has (catalogue/*.yaml, tile_catalogue.h): the same list the add-on and the editor take.
+  for (const auto *allowed : tile_catalogue::DOMAINS)
     if (domain == allowed) return true;
   return false;
 }
@@ -195,6 +202,9 @@ struct Extra {
   std::vector<Lamp> lamps;
   // Climate: the modes as JSON lists, the current fan and swing mode, and what it is doing now.
   std::string hvac_modes, fan_modes, swing_modes, fan_mode, swing_mode, hvac_action;
+  // The range a thermostat keeps the room in (target_temp_low and target_temp_high, firmware 0.19.0), where it has
+  // one instead of a single temperature: heat_cool, and auto on some.
+  float target_low = NAN, target_high = NAN;
   // A select's options, at most eight.
   std::vector<std::string> options;
   // Weather: up to five days and eight hours.
@@ -209,7 +219,7 @@ struct Extra {
   // Home Assistant last said so (seconds, and that moment as an epoch), and a short mark of the cover picture, empty
   // when the player shows none. The mark changes with the picture: the card fetches a new cover when it does.
   std::string media_artist, media_album, media_picture;
-  // A map card's movement mark (firmware 0.15.0+, app 0.4.24): a short hash of where the people it shows are and of
+  // A map card's movement mark (firmware 0.20.0+, app 0.4.33): a short hash of where the people it shows are and of
   // the card's own choices, worked out by the app (map_card.fingerprint). The screen never sees a coordinate; it only
   // folds this into the picture it wishes for, so a card is drawn again when something moved and never on a clock.
   std::string map_mark;
@@ -248,7 +258,7 @@ struct Extra {
   Choice *choice(char kind) { for (auto &c : choices) if (c.kind == kind) return &c; return nullptr; }
   bool empty() const {
     return hvac_modes.empty() && fan_modes.empty() && swing_modes.empty() && fan_mode.empty() && swing_mode.empty() &&
-           hvac_action.empty() && options.empty() && forecast.empty() && hours.empty() && std::isnan(wind) &&
+           hvac_action.empty() && std::isnan(target_low) && std::isnan(target_high) && options.empty() && forecast.empty() && hours.empty() && std::isnan(wind) &&
            std::isnan(feels) && wind_unit.empty() && sunrise.empty() && sunset.empty() && duration.empty() &&
            remaining.empty() && !timer_end && media_title.empty() && media_artist.empty() && media_album.empty() &&
            media_picture.empty() && map_mark.empty() && !media_duration && !media_position && !media_position_at && fan_speeds.empty() && fan_speed.empty() &&
@@ -329,7 +339,7 @@ struct Tile {
   // A media player's album cover in the icon's place (firmware 0.2.78+): "display": "cover" on a single or double-width
   // tile, while the player has a picture; the tile over the whole page keeps the card's big cover.
   bool cover_tile() const { return display == "cover" && domain() == "media_player" && !full && !extra().media_picture.empty(); }
-  // A map around the people this person's tile follows (firmware 0.15.0+): the app draws the whole card and sends it
+  // A map around the people this person's tile follows (firmware 0.20.0+): the app draws the whole card and sends it
   // in the page's picture strip, so there is no map arithmetic here at all. Version 1: the tile's own entity is a
   // person; a device tracker rides along inside the app and never becomes a tile of its own.
   bool is_map() const { return display == "map" && domain() == "person"; }
@@ -338,6 +348,8 @@ struct Tile {
   // Double width takes a row; full (firmware 0.2.62+) takes the whole page, all six slots, and is also wide.
   bool wide = false, full = false;
   uint8_t height = 1;  // Row span; independent of the card design and page height.
+  // The columns of a span ("3x2", firmware 0.19.0); 0 for the five names, whose width `wide` and `full` say.
+  uint8_t span = 0;
   // A key of a bedside clock (firmware 0.8.0+): a tile without a place of its own. `parent` is its clock's index, -1
   // for a tile that has a place; `key` is where it stands under the time, counted from 0.
   int16_t parent = -1;
@@ -349,6 +361,10 @@ struct Tile {
   // A -/+ edit shows at once and is sent as one call after a short pause; the
   // value stays until Home Assistant reports it (or a timeout clears it).
   float edit_value = NAN; uint32_t edit_since = 0; bool edit_sent = false;
+  // A thermostat set to a range (firmware 0.19.0): edit_value is the low end then, and this the high end; range_end is
+  // the end its -/+ move, on the tile and on its card alike (tile_controls::RANGE_LOW, the heat, or RANGE_HIGH, the cool).
+  float edit_high = NAN;
+  uint8_t range_end = 1;
   // Knob position a toggle shows while its command is under way.
   bool optimistic_on = false;
   // A slider the finger let go stays where it was put while the light fades towards it (firmware 0.2.60+): the value
@@ -377,6 +393,12 @@ struct Tile {
   bool pending = false, confirmed = false, local_feedback = false;
   // When Home Assistant refused the action a tap sent (firmware 0.2.58+); the tile says so for a moment.
   uint32_t refused_at = 0;
+  // A lock's "tap again" (firmware 0.16.0+ keeps it on its tile: an entity may stand on several, and a second tap
+  // counts on the tile or the card of the first alone): the action it waits for (a lock_panel::Act, -1 for none), since
+  // when, and whether the card asked. `noted_at`: a lock-only tile tapped while locked says so for a moment.
+  int8_t ask_act = -1;
+  uint32_t ask_since = 0, noted_at = 0;
+  bool ask_card = false;
   // When the state last changed to another one (firmware 0.3.3+): an alarm panel marks the moment it armed or
   // disarmed with a short animation.
   uint32_t changed_at = 0;
@@ -470,7 +492,7 @@ struct Tile {
   bool is_page() const { return page_entity(entity); }
   int page_target() const { return is_page() ? entity[12] - '0' : 0; }
   // Slots a tile takes: one, a row of two, or the six of a page.
-  unsigned column_span() const { return full ? grid.columns : wide ? grid.wide_span() : 1u; }
+  unsigned column_span() const { return full ? grid.columns : span ? span : wide ? grid.wide_span() : 1u; }
   unsigned row_span() const { return full ? grid.rows : height; }
   unsigned cells() const { return column_span() * row_span(); }
   // A scene, button or input button that never ran is "unknown" in Home Assistant, which still lets you press it
@@ -540,7 +562,7 @@ inline unsigned place(const Model &m, std::array<Placement, TILES_MAX> &out);
 struct Model {
   TileList tiles;
   // Absolute grid slot per tile: gaps and page ownership stay unchanged.
-  std::array<uint8_t, TILES_MAX> slots{};
+  std::array<uint16_t, TILES_MAX> slots{};
   // Pages the manager wants shown even when the last ones are still empty (0.2.26+).
   uint8_t pages = 1;
   size_t count = 0;
@@ -578,12 +600,13 @@ struct Model {
     slots.fill(0);
     count = tile_count;
     pages = page_count;
-    title = name.empty() ? screen_text::tr(screen_text::txt::status_home) : name;
+    // An empty title stays empty (firmware 0.17.0+): the top bar then shows its home key alone. Before, it said "Home".
+    title = name;
     refusal.clear();
     return true;
   }
-  bool valid_placement(unsigned index, unsigned slot, bool full, bool wide, unsigned height = 1) const {
-    const unsigned columns = full ? grid.columns : wide ? grid.wide_span() : 1;
+  bool valid_placement(unsigned index, unsigned slot, bool full, bool wide, unsigned height = 1, unsigned span = 0) const {
+    const unsigned columns = full ? grid.columns : span ? span : wide ? grid.wide_span() : 1;
     const unsigned rows = full ? grid.rows : height;
     const unsigned x = slot % grid.columns, y = slot % grid.slots() / grid.columns;
     if (!rows || index >= count || slot >= pages * grid.slots() || (full && slot % grid.slots()) ||
@@ -611,7 +634,7 @@ inline unsigned place(const Model &m, std::array<Placement, TILES_MAX> &out) {
     if (m.tiles[i].is_key()) { out[i] = {0xFF, 0xFF}; continue; }
     unsigned slot = m.slots[i];
     if (m.tiles[i].full) slot -= slot % grid.slots();
-    else if (m.tiles[i].wide && !grid.wide_fits(slot)) --slot;
+    else if (m.tiles[i].wide && !m.tiles[i].span && !grid.wide_fits(slot)) --slot;
     out[i] = {static_cast<uint8_t>(slot / grid.slots()), static_cast<uint8_t>(slot % grid.slots())};
     last = std::max(last, slot + (m.tiles[i].row_span() - 1) * static_cast<unsigned>(grid.columns) + m.tiles[i].column_span());
   }

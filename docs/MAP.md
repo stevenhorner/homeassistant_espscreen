@@ -1,6 +1,6 @@
 # A map card
 
-App 0.4.24 with firmware 0.15.0 puts a map on a person tile: the basemap Home Assistant serves,
+App 0.4.33 with firmware 0.20.0 puts a map on a person tile: the basemap Home Assistant serves,
 the zones around it, and a marker for everyone the card follows. The add-on draws the whole card
 and sends the screen a picture, the same way a live camera arrives, so the screen holds no
 location, no token and no map address.
@@ -31,7 +31,7 @@ Every board that draws pictures: the 4-inch, 7-inch and 10.1-inch Guition, the J
 `screen_manager/app/boards.json`, worked out from whether the board file includes
 `packages/features/camera.yaml`. The CYD, the Waveshare 3.5-inch and the Hosyond 4-inch have no
 memory for pictures; the editor does not offer Map there and a save with one is refused with "This
-screen cannot show a map". A screen whose firmware is older than 0.15.0 is told to update first.
+screen cannot show a map". A screen whose firmware is older than 0.20.0 is told to update first.
 
 ## The two base maps
 

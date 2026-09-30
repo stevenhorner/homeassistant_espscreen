@@ -33,7 +33,7 @@ def demo_layout():
         {'entity': 'weather.demo_default', 'name': 'Weather now', 'options': {}},
     ]})
 
-# A map card on a person tile (app 0.4.24, firmware 0.15.0): every size on one page, so the fit, the legend and the
+# A map card on a person tile (app 0.4.33, firmware 0.20.0): every size on one page, so the fit, the legend and the
 # attribution can be judged side by side. The app draws these cards, so the screen only places the pictures; a board
 # without memory for pictures shows the ordinary person cards instead.
 def map_layout():
@@ -198,7 +198,7 @@ async def main():
     p.add_argument('--digital', action='store_true', help='Digital clock on a single tile instead of the analog calendar card without a background')
     p.add_argument('--wide', action='store_true', help='Analog clock double-width (dial with digital time and date)')
     p.add_argument('--controls', action='store_true', help='Double-width cards with direct control (firmware 0.2.19+), three per page')
-    p.add_argument('--maps', action='store_true', help='Map cards on person tiles at every size (app 0.4.24, firmware 0.15.0); the app draws them, so the screen needs ESP Screens running')
+    p.add_argument('--maps', action='store_true', help='Map cards on person tiles at every size (app 0.4.33, firmware 0.20.0); the app draws them, so the screen needs ESP Screens running')
     args = p.parse_args()
     client = APIClient(args.host, 6053, noise_psk=yaml.safe_load(args.secrets.read_text())['api_encryption_key'],
                        client_info='Demo layout', expected_name=args.name)

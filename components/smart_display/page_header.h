@@ -180,18 +180,23 @@ public:
     lv_font_glyph_dsc_t house, cap;
     if (header_home_mark) { slot_w = home_mark->header.w; slot_h = home_mark->header.h; }
     else if (lv_font_get_glyph_dsc(header_icon_font, &house, HOME_GLYPH, 0)) { slot_w = house.box_w; slot_h = house.box_h; }
-    // The bar keeps one margin all round (firmware 0.14.0+): the top of the key's slot, the tallest ink of the bar,
-    // lies as far below the top of the glass as the name lies from its side. The key stands on the capitals' line,
-    // so that line follows from the slot, whatever the fonts, and the bar stays put when the key is switched off.
+    // The bar keeps one margin all round (firmware 0.14.0+): the top of the key's slot lies as far below the top of
+    // the glass as the name lies from its side. Since firmware 0.15.0 the name's capitals are centred on the slot
+    // (GitHub #90), so the name and the key share one middle line whatever the fonts, and the bar stays put when the
+    // key is switched off.
     if (slot_h && lv_font_get_glyph_dsc(name_font, &cap, 'H', 0) && cap.box_h)
-      lv_obj_set_y(room_label, header_name_left + slot_h + cap.ofs_y - (name_font->line_height - name_font->base_line));
+      lv_obj_set_y(room_label, header_name_left + (slot_h + cap.box_h) / 2 + cap.ofs_y - (name_font->line_height - name_font->base_line));
     int baseline = lv_obj_get_y(room_label) + (name_font->line_height - name_font->base_line);
     lv_obj_set_pos(header_root, 0, 0);
     lv_obj_set_size(header_root, page_w, baseline + name_font->line_height);
     lv_font_glyph_dsc_t zero, dial_glyph;
     if (!lv_font_get_glyph_dsc(header_text_font, &zero, '0', 0) || !zero.box_h) return;
-    // Twice the digits' ink centre keeps the halves exact.
-    int middle2 = 2 * (baseline - zero.ofs_y) - zero.box_h;
+    // Every part of the bar shares the key's middle line (firmware 0.15.0+): the name's capitals, the items' digits,
+    // their icons and the dial. Twice the middle keeps the halves exact. Without a key, the digits' own middle on the
+    // name's line.
+    int middle2 = slot_h ? 2 * header_name_left + slot_h : 2 * (baseline - zero.ofs_y) - zero.box_h;
+    // The items' words put their digits on that line; their baseline follows from the digits.
+    const int item_baseline = (middle2 + zero.box_h) / 2 + zero.ofs_y;
     auto gaps = header_bar::gaps(zero.box_h);
     // The dial is as large as a round icon (clock-outline) of the icon font.
     int dial = lv_font_get_glyph_dsc(header_icon_font, &dial_glyph, 0xF0150, 0) && dial_glyph.box_h ? dial_glyph.box_h : zero.box_h * 3 / 2;
@@ -235,11 +240,8 @@ public:
     lv_font_glyph_dsc_t leading{};
     if (view.leading != Leading::none && slot_w && slot_h &&
         (draw_mark || (lv_font_get_glyph_dsc(leading_font, &leading, leading_glyph, 0) && leading.box_w))) {
-      // On the baseline of the name, not centred on it: the key stands on the line the capitals stand on and grows
-      // upward from there, the way a taller letter would. Centring it would hang it below the line by half of what it
-      // is taller, which is exactly the half pixel you see. Without a capital to measure, the digits of the bar.
-      const int ink_bottom = lv_font_get_glyph_dsc(name_font, &cap, 'H', 0) && cap.box_h ? baseline - cap.ofs_y
-                                                                                         : (middle2 + slot_h) / 2;
+      // The key fills its slot from the bar's top margin down; the name's capitals are centred on it.
+      const int ink_bottom = header_name_left + slot_h;
       if (draw_mark) {
         lv_obj_set_pos(header_home_mark, left, ink_bottom - slot_h);
         mark_on = true;
@@ -327,7 +329,7 @@ public:
       }
       if (p.text_w) {
         label(slot.text, p.text);
-        lv_obj_set_pos(slot.text, x - p.text_left, baseline - (header_text_font->line_height - header_text_font->base_line));
+        lv_obj_set_pos(slot.text, x - p.text_left, item_baseline - (header_text_font->line_height - header_text_font->base_line));
         text_on[k] = true;
       }
     }

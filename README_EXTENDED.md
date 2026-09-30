@@ -17,10 +17,11 @@ on the screen itself, and how updates work.
 
 ## What you can configure
 
-- **One tile per cell**, across up to eight fixed pages: six cells a page on a CYD, a 4-inch Guition or the
+- **One tile per cell**, across up to eight fixed pages and 64 tiles: six cells a page on a CYD, a 4-inch Guition or the
   [experimental Waveshare 4B](docs/WAVESHARE4B.md) (48 tiles), nine on
-  the Waveshare 4.3-inch (63, over seven pages), twenty on the 10.1-inch Guition (60, over three), and sixteen on the
-  [experimental Waveshare 7-inch](docs/WAVESHARE7.md) and the [experimental Waveshare 7B](docs/WAVESHARE7B.md) (64, over four), and four on the [Waveshare 3.5-inch](docs/WAVESHARE35.md) (32), lying down (firmware 0.2.62+; twenty tiles before).
+  the Waveshare 4.3-inch, twenty-five on the 10.1-inch Guition, sixteen on the
+  [experimental Waveshare 7-inch](docs/WAVESHARE7.md), the [experimental Waveshare 7B](docs/WAVESHARE7B.md) and the [experimental Sunton 7-inch](docs/SUNTON8048S070.md), and four on the [Waveshare 3.5-inch](docs/WAVESHARE35.md) (32), lying down. A page need not be full: every screen has eight pages from firmware 0.18.0, where
+  a bigger grid had fewer before (three on the 10.1-inch Guition, then five by four). Firmware 0.2.62+; twenty tiles before.
   Search by entity, device, or room, and drag to reorder. A whole page moves the same way: drag it by its
   number to another place in the row, and its tiles, its own title and the Go to page tiles that lead to it come
   along. Remove page in the page's ··· menu takes a page away with those same tiles, with Undo beside the message.
@@ -208,7 +209,7 @@ on the screen itself, and how updates work.
   four seconds, with the round back key; standby and **Back to page 1** close it. The same camera can bring its
   picture to an alert ([With a camera picture](#with-a-camera-picture)). The CYD has no memory for pictures and
   the editor doesn't offer it camera tiles. How the picture travels: [docs/CAMERA.md](docs/CAMERA.md).
-- **Map** on a person tile (app 0.4.24 / firmware 0.15.0): where the people you follow are, on the
+- **Map** on a person tile (app 0.4.33 / firmware 0.20.0): where the people you follow are, on the
   base map Home Assistant serves, with your zones and a marker each. Set **Display** to **Map** and
   add up to seven companions, people or device trackers, in **On the map**. The add-on draws the
   whole card and sends the screen a picture, so no location, token or map address ever reaches a

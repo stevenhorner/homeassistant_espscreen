@@ -76,7 +76,7 @@ def encode(raws, grounds, atlas, modes=None, compact=False):
         colour = tuple((background >> shift) & 255 for shift in (16, 8, 0))
         tile = Image.new('RGB', (w, h), colour)
         if raw is not None:
-            # A frame the app drew itself arrives as a picture, not as bytes (map_card.render, app 0.4.24): one
+            # A frame the app drew itself arrives as a picture, not as bytes (map_card.render, app 0.4.33): one
             # composer for cameras, covers and maps, without encoding a map only to decode it again here.
             with (contextlib.nullcontext(raw) if isinstance(raw, Image.Image) else Image.open(io.BytesIO(raw))) as source:
                 if not isinstance(raw, Image.Image):

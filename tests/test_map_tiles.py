@@ -1,4 +1,4 @@
-"""The basemap a map card is drawn on comes through Home Assistant's own tile proxy (app 0.4.24).
+"""The basemap a map card is drawn on comes through Home Assistant's own tile proxy (app 0.4.33).
 
 Nothing here touches the network: the websocket command and the tile request are both injected, so these tests
 say exactly what the add-on asks for and how it behaves when Home Assistant cannot answer. The point of the

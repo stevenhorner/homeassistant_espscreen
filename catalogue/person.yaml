@@ -1,0 +1,12 @@
+# Person. Home Assistant: homeassistant/components/person.
+# Home Assistant's own facts for it (flags, actions) come from its source: catalogue/_ha.json (tools/read_ha_source.py).
+# docs/CATALOGUE.md says what every key means.
+domain: person
+firmware: 0.2.14   # the first firmware that draws this type
+displays:
+  standard: {}
+  watch: {}
+  # A map around this person and any companions riding along (app 0.4.33, docs/MAP.md): the add-on renders the whole
+  # card server-side and delivers it through the picture pipeline, on a board that draws pictures.
+  map:
+    screen: {pictures: true, firmware: 0.20.0}
