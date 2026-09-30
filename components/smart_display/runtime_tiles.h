@@ -7789,7 +7789,7 @@ inline LiveWish live_wanted() {
     snprintf(ground, sizeof(ground), "%06X", (unsigned) behind);
     want.grounds += ground;
     if (t.cover_tile()) want.marks += t.extra().media_picture;
-    // A map's mark is what makes it a different picture (app 0.4.24). It never sets a pace: a page of maps alone
+    // A map's mark is what makes it a different picture (app 0.4.33). It never sets a pace: a page of maps alone
     // opens the feed once and then waits for something to move.
     if (t.is_map()) want.marks += t.extra().map_mark;
     if (!want.size) want.size = lv_obj_get_style_width(w.circle, LV_PART_MAIN);
@@ -7950,9 +7950,9 @@ inline void live_request() {
   request.is_event = true;
   char size_text[12];
   snprintf(size_text, sizeof(size_text), "%d", live_wish.size);
-  // "dark" (app 0.4.24): a map is drawn in the look the screen is in, so the app needs to know which one. An older
+  // "dark" (app 0.4.33): a map is drawn in the look the screen is in, so the app needs to know which one. An older
   // app reads only the keys it knows and simply ignores it.
-  // `idx` (firmware 0.16.0+): each square's tile by its index, so the app prepares it the way that tile asks.
+  // `idx` (firmware 0.20.0+): each square's tile by its index, so the app prepares it the way that tile asks.
   const std::string keys[] = {"inbox", "tiles", "idx", "size", "bg", "session", "rev", "view", "dark", "atlas"}, values[] = {inbox, live_wish.entities, live_wish.tiles, size_text, live_wish.grounds, protocol_key(transfer.lease), layout_rev, std::to_string(++live_view_id), live_wish.dark ? "1" : "0", live_wish.atlas};
   const int count=live_wish.atlas.empty()?9:10;
   request.data.init(count);
