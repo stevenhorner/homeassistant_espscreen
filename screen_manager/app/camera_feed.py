@@ -241,13 +241,24 @@ def live_request(request, atlas=False):
     return entities, size, [int(c, 16) for c in colours]
 
 
+def render_for(renders, index, entity):
+    """The (mark, draw) `renders` gives one tile of a live strip, or None for a tile the app does not draw itself.
+
+    An entry keyed by the strip's own occurrence index (server.answer_live, two tiles of the same entity each with
+    their own `idx`) takes priority over a legacy entry keyed by entity alone, kept so a caller with at most one
+    tile per entity can still use plain entity keys (every caller before occurrence-keyed map renders)."""
+    return renders[index] if index in renders else renders.get(entity)
+
+
 def listing(entities, raws, renders=None):
     """The entities the strip really carries, '' where a camera had no snapshot.
 
     An entity the app draws itself is always there: a strip that came from the cache skipped the drawing, so its
-    frame is None here even though the picture holds it (app 0.4.33)."""
+    frame is None here even though the picture holds it (app 0.4.33). Whether a tile is drawn is decided per
+    occurrence (render_for), so two tiles of the same entity never collapse into one."""
     renders = renders or {}
-    return [entity if entity in renders or raw is not None else '' for entity, raw in zip(entities, raws)]
+    return [entity if render_for(renders, n, entity) is not None or raw is not None else ''
+            for n, (entity, raw) in enumerate(zip(entities, raws))]
 
 
 def live_indexes(request, entities):
@@ -555,30 +566,33 @@ class CameraFeed:
         screen that reloads its link after someone moved gets the card drawn again. A drawn frame is never missing.
         """
         renders = renders or {}
-        if atlas is not None and renders:
+        # Resolved once per occurrence (render_for), not per entity: two tiles of the same entity each keep their
+        # own render input, so their marks, fetches, atlas shade and cache key never collapse into one.
+        drawn_by = [render_for(renders, n, entity) for n, entity in enumerate(entities)]
+        if atlas is not None and any(drawn_by):
             # Firmware/WASM built before 0.14.0 sends 170 (card darkening) for every card_art tile, maps
             # included; current firmware sends 0 for a map. A stale build's 170 would blend the whole
             # basemap toward black in tile_art.encode, so a render's own frame is forced back to 0 here,
             # leaving every other frame's requested shade (a camera's 0, a cover's 170) untouched.
             width, height, frames = atlas
-            frames = tuple(frame[:5] + (0,) if entity in renders else frame for entity, frame in zip(entities, frames))
+            frames = tuple(frame[:5] + (0,) if drawn_by[n] is not None else frame for n, frame in enumerate(frames))
             atlas = (width, height, frames)
-        marks = {entity: mark() if callable(mark) else mark for entity, (mark, _) in renders.items()}
+        marks = [(entry[0]() if callable(entry[0]) else entry[0]) if entry is not None else None for entry in drawn_by]
         fetched = iter(await asyncio.gather(*(self.live_one(entity, pace, wait)
-                                              for entity, pace in zip(entities, paces) if entity not in renders)))
-        raws = [None if entity in renders else next(fetched) for entity in entities]
-        if not renders and all(raw is None for raw in raws):
+                                              for n, (entity, pace) in enumerate(zip(entities, paces)) if drawn_by[n] is None)))
+        raws = [None if drawn_by[n] is not None else next(fetched) for n in range(len(entities))]
+        if not any(drawn_by) and all(raw is None for raw in raws):
             return None
-        digests = [marks[entity] if entity in renders else (self.watches[entity].digest if raw is not None else '')
-                   for entity, raw in zip(entities, raws)]
+        digests = [marks[n] if drawn_by[n] is not None else (self.watches[entity].digest if raw is not None else '')
+                   for n, (entity, raw) in enumerate(zip(entities, raws))]
         key = ('live', size, tuple(grounds), tuple(digests), atlas, tuple(modes or ()), compact)
         tag = f'"{hashlib.sha1(repr(key).encode()).hexdigest()[:16]}-l{size}"'  # names the strip; not sent
         cached = self.strips.get(key)
         if cached is None:
             try:
-                for index, entity in enumerate(entities):
-                    if entity in renders:
-                        raws[index] = await self.drawn(renders[entity][1], atlas, index, size)
+                for index in range(len(entities)):
+                    if drawn_by[index] is not None:
+                        raws[index] = await self.drawn(drawn_by[index][1], atlas, index, size)
                 image = await asyncio.get_running_loop().run_in_executor(None, tile_art.encode, raws, grounds, atlas, modes, compact) if atlas else await asyncio.get_running_loop().run_in_executor(None, encode_live, raws, size, grounds, compact)
             except Exception as error:
                 LOG.info('The live pictures of %s cannot be read (%s)', ', '.join(entities), type(error).__name__)

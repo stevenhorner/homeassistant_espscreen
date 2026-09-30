@@ -73,9 +73,9 @@ def tiles_of(*options):
                                                        for o in options]})
 
 
-def request(atlas, tiles='person.robin', dark='0', inbox='text.d1_tiles'):
+def request(atlas, tiles='person.robin', dark='0', inbox='text.d1_tiles', idx=None):
     return {'inbox': inbox, 'tiles': tiles, 'size': '54', 'bg': ','.join(['FFFFFF'] * len(tiles.split(','))),
-            'dark': dark, 'atlas': json.dumps(atlas)}
+            'dark': dark, 'atlas': json.dumps(atlas), **({'idx': idx} if idx is not None else {})}
 
 
 def sent(ha):
@@ -152,6 +152,40 @@ class Delivery(unittest.IsolatedAsyncioTestCase):
         two, second = await self.served(m, ha)
         self.assertNotEqual(one.tobytes(), two.tobytes())
         self.assertNotEqual(first, second, 'the strip cache must not answer with the other tile card')
+
+    async def test_two_occurrences_of_the_same_person_keep_their_own_render(self):
+        """Two map tiles of person.robin on one page (firmware 0.16.0+, `idx`): distinct companions, zoom and name
+        must never collapse into one picture, the way two tiles of the same camera already keep their own fit."""
+        ha = ready(fake_ha())
+        layout = validate_layout({'title': 'Hall', 'tiles': [
+            {'entity': 'person.robin', 'name': 'Robin alone', 'options': {'display': 'map'}},
+            {'entity': 'person.robin', 'name': 'Robin with Sam',
+             'options': {'display': 'map', 'map': ['person.sam'], 'zoom': '15'}},
+        ]})
+        m = self.manager(ha, layout)
+        atlas = [[0, 0, 120, 200, 0, 0], [120, 0, 120, 200, 0, 0]]
+        await m.answer_camera(request(atlas, tiles='person.robin,person.robin', idx='0,1'))
+        first_message = sent(ha)[-1]
+        first_link = m.camera.links[first_message['u'].rsplit('/', 1)[1][:-4]]
+        first_renders = first_link.live[4]['renders']
+        first_marks = [first_renders[n][0]() for n in range(2)]
+        self.assertNotEqual(first_marks[0], first_marks[1], 'each occurrence fingerprints on its own options')
+        image, _ = await self.served(m, ha)
+        left, right = image.crop((0, 0, 120, 200)), image.crop((120, 0, 240, 200))
+        self.assertNotEqual(left.tobytes(), right.tobytes(), 'two different tiles must not collapse into one picture')
+        message = sent(ha)[-1]
+        self.assertEqual(message['e'], 'person.robin,person.robin', 'both occurrences carry their own map')
+        # The strip's cache key must tell the two apart too, not just the pixels of one particular reply.
+        self.assertEqual(len(m.camera.strips), 1)
+        key = next(iter(m.camera.strips))
+        digests = key[3]
+        self.assertNotEqual(digests[0], digests[1], 'each occurrence fingerprints on its own mark')
+        # Swapping which tile each index names swaps their fingerprints, proving each kept its own companion and zoom.
+        await m.answer_camera(request(atlas, tiles='person.robin,person.robin', idx='1,0'))
+        second_message = sent(ha)[-1]
+        second_link = m.camera.links[second_message['u'].rsplit('/', 1)[1][:-4]]
+        second_renders = second_link.live[4]['renders']
+        self.assertEqual([second_renders[n][0]() for n in range(2)], list(reversed(first_marks)))
 
     async def test_another_frame_and_another_look_are_another_picture(self):
         ha = ready(fake_ha())
@@ -323,6 +357,34 @@ class Composing(unittest.TestCase):
             self.assertNotEqual(moved[0], first[0], 'a changed mark is a changed strip')
         asyncio.run(run())
         self.assertEqual(drawn[0], (120, 90), 'the renderer is asked for exactly the frame')
+
+    def test_two_occurrences_of_one_entity_use_their_own_render(self):
+        """`renders` keyed by the strip's own occurrence index (server.answer_live) must not collapse two tiles of
+        the same entity into one: each keeps its own mark, is drawn from its own input, and is reported as carried."""
+        from PIL import Image
+        feed = camera_feed.CameraFeed(lambda entity: None)
+        atlas = camera_feed.tile_art.parse('[[0,0,60,90,0,0],[60,0,60,90,0,0]]', (120, 90), 2)
+        drawn = []
+
+        def render(colour):
+            def draw(width, height):
+                drawn.append((colour, width, height))
+                return Image.new('RGB', (width, height), colour)
+            return draw
+
+        async def run():
+            result = await feed.live(['person.robin', 'person.robin'], 54, [0xFFFFFF, 0xFFFFFF], [0, 0], atlas=atlas,
+                                     renders={0: ('mark-a', render((10, 20, 30))), 1: ('mark-b', render((40, 50, 60)))})
+            self.assertIsNotNone(result)
+            _, image, listing = result
+            self.assertEqual(listing, ['person.robin', 'person.robin'], 'both occurrences carry the map')
+            self.assertEqual({colour for colour, *_ in drawn}, {(10, 20, 30), (40, 50, 60)}, 'each drew its own input')
+            # A legacy caller with one tile per entity may still key renders by entity alone.
+            one = camera_feed.tile_art.parse('[[0,0,60,90,0,0]]', (60, 90), 1)
+            legacy = await feed.live(['person.robin'], 54, [0xFFFFFF], [0], atlas=one,
+                                     renders={'person.robin': ('mark-a', render((10, 20, 30)))})
+            self.assertEqual(legacy[2], ['person.robin'])
+        asyncio.run(run())
 
     def test_a_stale_170_is_normalized_only_on_the_maps_own_frame(self):
         """Firmware/WASM built before 0.14.0 sends 170 (card darkening) for every card_art tile, maps included;

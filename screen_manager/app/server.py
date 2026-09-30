@@ -2292,11 +2292,6 @@ class Manager:
         if any(entity not in tiles for entity in entities):
             LOG.info('Live pictures for %s: not the pictured tiles of %s', ', '.join(entities), screen['name'])
             return
-        maps = {entity: next((o for o in tiles[entity] if o.get('display') == 'map'), None) for entity in entities}
-        maps = {entity: options for entity, options in maps.items() if options is not None}
-        if maps and not camera_feed.can_show_map(screen):
-            LOG.info('A map for %s: %s cannot draw one yet', ', '.join(maps), screen['name'])
-            return
         # A map is redrawn only when its mark changes, so it never sets a pace: nothing here runs on a clock.
         paces = [min(option.get('refresh', camera_feed.LIVE_REFRESH_DEFAULT) if option.get('display') == 'live' else 0
                      for option in tiles[entity]) for entity in entities]
@@ -2309,12 +2304,26 @@ class Manager:
             return
         options_of = (lambda n, entity: placed_tiles[own[n]].get('options') or {}) if own is not None else \
             (lambda n, entity: next((o for o in tiles[entity] if o.get('display') in ('live', 'map')), None))
+        # A map's options come from its own occurrence's placed tile (own[n]) when the screen named one, so two
+        # tiles of the same person never share a companion, zoom or look; a screen without idx has at most one
+        # tile per entity, so that entity's first pictured tile is a sensible fallback (older firmware).
+        maps = {}
+        for n, entity in enumerate(entities):
+            options = options_of(n, entity)
+            if options and options.get('display') == 'map':
+                maps[n] = options
+        if maps and not camera_feed.can_show_map(screen):
+            LOG.info('A map for %s: %s cannot draw one yet', ', '.join(entities[n] for n in maps), screen['name'])
+            return
         # How each picture fills its card (app 0.3.8).
         modes = camera_feed.picture_modes(screen, options_of, entities) if atlas else None
         # The look the screen is in (app 0.4.33): a map is drawn for it, so switching the look is another picture.
         dark = str(request.get('dark') or '') == '1'
-        renders = {entity: self.map_render(entity, names.get(entity, ''), options, dark)
-                   for entity, options in maps.items()}
+        # The name in the band is the exact placed tile's own, for the same reason as its options above.
+        name_of = (lambda n, entity: placed_tiles[own[n]].get('name') or '') if own is not None else \
+            (lambda n, entity: names.get(entity, ''))
+        renders = {n: self.map_render(entities[n], name_of(n, entities[n]), options, dark)
+                   for n, options in maps.items()}
         url, listing = '', ','.join(entities)
         base = await camera_feed.base_url(self.ha.request)
         if base:
